@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 - 2026-05-08
 
 - Initial `clawdex` CLI with markdown-backed people, timestamped notes, search, timeline, Git helpers, vCard export, and repair for damaged frontmatter.
 - Added Apple Contacts import on macOS, Google Contacts import through `gog`, Discord DM backfill through Discrawl, and X/Twitter DM backfill through Birdclaw.
