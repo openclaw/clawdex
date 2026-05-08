@@ -3,20 +3,635 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clawdex</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Clawdex — local-first contact index</title>
+  <meta name="description" content="Personal contact index backed by markdown and private Git. Imports Apple, Google, X DMs, and Discord DMs.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='14' width='52' height='40' rx='4' fill='%23f5e9c8' stroke='%23231f1c' stroke-width='3'/%3E%3Crect x='6' y='14' width='52' height='8' fill='%23d94e3a'/%3E%3Cline x1='14' y1='32' x2='50' y2='32' stroke='%23231f1c' stroke-width='2'/%3E%3Cline x1='14' y1='40' x2='50' y2='40' stroke='%23231f1c' stroke-width='2'/%3E%3Cline x1='14' y1='48' x2='38' y2='48' stroke='%23231f1c' stroke-width='2'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-light.min.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)">
+
   <style>
-    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f172a; color: #f8fafc; }
-    main { width: min(720px, calc(100% - 48px)); }
-    h1 { margin: 0 0 12px; font-size: clamp(42px, 8vw, 84px); line-height: .95; letter-spacing: 0; }
-    p { margin: 0; color: #cbd5e1; font-size: 18px; line-height: 1.6; }
-    a { color: #93c5fd; }
+    :root {
+      --paper:        #f6ecd2;
+      --paper-edge:   #e7d8a8;
+      --paper-grid:   #e3d3a0;
+      --ink:          #211c17;
+      --ink-soft:     #4a3f33;
+      --ink-faint:    #7a6a55;
+      --tab:          #d94e3a;
+      --tab-deep:     #b03a28;
+      --tab-alt:      #2a6c8a;
+      --tab-alt-deep: #1c4d63;
+      --rule:         #3a2f24;
+      --code-bg:      #f1e3bd;
+      --code-border:  #d8c389;
+      --shadow:       0 24px 60px -28px rgba(40, 28, 12, .55), 0 4px 14px -8px rgba(40, 28, 12, .3);
+      --hand:         "Caveat", "Bradley Hand", "Segoe Script", cursive;
+      --serif:        "Iowan Old Style", "Charter", "Georgia", serif;
+      --mono:         ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper:        #1e1a17;
+        --paper-edge:   #2a2521;
+        --paper-grid:   #2c2620;
+        --ink:          #f1e7d0;
+        --ink-soft:     #d6c8aa;
+        --ink-faint:    #9a8b73;
+        --tab:          #e07560;
+        --tab-deep:     #a8462f;
+        --tab-alt:      #6fb3d1;
+        --tab-alt-deep: #3d7d99;
+        --rule:         #c9b994;
+        --code-bg:      #16110d;
+        --code-border:  #3a2f24;
+        --shadow:       0 30px 80px -28px rgba(0, 0, 0, .8), 0 6px 18px -8px rgba(0, 0, 0, .55);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--serif);
+      color: var(--ink);
+      background: var(--paper);
+      background-image:
+        radial-gradient(ellipse at top, transparent 0, rgba(0,0,0,.05) 100%),
+        repeating-linear-gradient(0deg, transparent 0 31px, color-mix(in srgb, var(--paper-grid) 65%, transparent) 31px 32px),
+        repeating-linear-gradient(90deg, transparent 0 1200px, color-mix(in srgb, var(--tab) 35%, transparent) 1200px 1201px);
+      min-height: 100vh;
+      line-height: 1.55;
+      font-size: 17px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .desk {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 28px;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 28px 80px;
+    }
+
+    /* Header */
+    .masthead {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 6px 4px 14px;
+      border-bottom: 2px solid var(--rule);
+      position: relative;
+    }
+    .masthead::after {
+      content: "";
+      position: absolute; left: 0; right: 0; bottom: -6px;
+      height: 2px;
+      background: var(--rule);
+      opacity: .35;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand .logo {
+      width: 52px; height: 52px;
+      border-radius: 6px;
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--ink);
+      position: relative;
+      flex: none;
+    }
+    .brand .logo::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0; height: 12px;
+      background: var(--tab);
+      border-bottom: 2px solid var(--ink);
+      border-radius: 4px 4px 0 0;
+    }
+    .brand .logo::after {
+      content: "";
+      position: absolute; left: 8px; right: 8px; top: 22px; bottom: 8px;
+      background:
+        linear-gradient(var(--ink), var(--ink)) 0 0/100% 2px no-repeat,
+        linear-gradient(var(--ink), var(--ink)) 0 9px/100% 2px no-repeat,
+        linear-gradient(var(--ink), var(--ink)) 0 18px/60% 2px no-repeat;
+    }
+    .brand h1 {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 30px;
+      letter-spacing: -.02em;
+      line-height: 1;
+    }
+    .brand .tag {
+      margin: 4px 0 0;
+      font-family: var(--hand);
+      font-size: 19px;
+      color: var(--ink-faint);
+      transform: rotate(-1.5deg);
+      display: inline-block;
+    }
+
+    .masthead nav {
+      display: flex; gap: 18px;
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .masthead nav a {
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      padding: 0 0 2px;
+    }
+    .masthead nav a:hover { border-bottom-color: var(--tab); color: var(--ink); }
+
+    /* Sidebar */
+    aside.tabs {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding: 8px 0;
+    }
+    aside.tabs .stack {
+      display: flex;
+      flex-direction: column;
+      border-left: 2px solid var(--ink);
+      position: relative;
+    }
+    aside.tabs h2 {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin: 14px 0 8px;
+      padding-left: 10px;
+    }
+    aside.tabs h2:first-child { margin-top: 0; }
+    aside.tabs a.tab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 16px;
+      padding: 7px 10px 7px 14px;
+      margin-left: -2px;
+      border-left: 4px solid transparent;
+      position: relative;
+      transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    }
+    aside.tabs a.tab .num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-faint);
+      width: 22px;
+      text-align: right;
+    }
+    aside.tabs a.tab:hover {
+      background: color-mix(in srgb, var(--paper-edge) 70%, transparent);
+      border-left-color: var(--tab-alt);
+    }
+    aside.tabs a.tab.active {
+      background: color-mix(in srgb, var(--tab) 14%, transparent);
+      border-left-color: var(--tab);
+      transform: translateX(2px);
+    }
+    aside.tabs a.tab.active .num { color: var(--tab-deep); }
+
+    /* Card */
+    main { min-width: 0; }
+    .card {
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      position: relative;
+      padding: 56px 44px 44px;
+      min-height: 60vh;
+    }
+    .card::before {
+      content: attr(data-tab);
+      position: absolute;
+      top: -16px;
+      left: 36px;
+      background: var(--tab);
+      color: var(--paper);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 4px 4px 0 0;
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+    .card::after {
+      content: "";
+      position: absolute;
+      left: 22px; top: 22px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--paper-edge);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.4);
+    }
+
+    .meta {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      display: flex; gap: 14px;
+      margin: -10px 0 22px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed var(--rule);
+    }
+    .meta .source a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+    article h1 {
+      font-family: var(--mono);
+      font-size: clamp(30px, 4.6vw, 44px);
+      line-height: 1.05;
+      letter-spacing: -.02em;
+      margin: 0 0 18px;
+    }
+    article h2 {
+      font-family: var(--mono);
+      font-size: 22px;
+      letter-spacing: -.01em;
+      margin: 36px 0 14px;
+      padding-bottom: 6px;
+      border-bottom: 1.5px solid var(--rule);
+    }
+    article h3 {
+      font-family: var(--mono);
+      font-size: 17px;
+      margin: 26px 0 8px;
+    }
+    article p, article li { color: var(--ink); }
+    article a {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-color: var(--tab);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+    article a:hover { color: var(--tab-deep); }
+    article ul, article ol { padding-left: 22px; }
+    article li { margin: 6px 0; }
+    article hr { border: 0; border-top: 2px dashed var(--rule); margin: 32px 0; }
+    article blockquote {
+      border-left: 4px solid var(--tab-alt);
+      margin: 18px 0;
+      padding: 6px 14px;
+      background: color-mix(in srgb, var(--tab-alt) 8%, transparent);
+      color: var(--ink-soft);
+      font-style: italic;
+    }
+    article table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 15px;
+    }
+    article th, article td {
+      border-bottom: 1px solid var(--rule);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    article th {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      border-bottom-width: 2px;
+    }
+
+    article code {
+      font-family: var(--mono);
+      font-size: .9em;
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+    article pre {
+      background: var(--code-bg);
+      border: 1.5px solid var(--code-border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
+      position: relative;
+    }
+    article pre code {
+      background: transparent; border: 0; padding: 0;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    /* Let hljs paint syntax colors but keep our paper background */
+    article pre code.hljs { background: transparent; padding: 0; }
+    /* Tone hljs colors a touch toward the paper palette in light mode */
+    @media (prefers-color-scheme: light) {
+      .hljs-comment, .hljs-quote { color: #8a7a5e; font-style: italic; }
+      .hljs-keyword, .hljs-selector-tag, .hljs-section { color: #b03a28; }
+      .hljs-string, .hljs-attr { color: #6b7d3a; }
+      .hljs-number, .hljs-literal, .hljs-built_in { color: #1c4d63; }
+      .hljs-title, .hljs-name, .hljs-meta { color: #3a2f24; font-weight: 600; }
+      .hljs-variable, .hljs-template-variable { color: #8c5a1a; }
+      .hljs-symbol, .hljs-bullet, .hljs-link { color: #2a6c8a; }
+    }
+
+    .placeholder {
+      font-family: var(--mono);
+      color: var(--ink-faint);
+      padding: 40px 0;
+      text-align: center;
+    }
+    .placeholder.error { color: var(--tab-deep); }
+
+    footer.colophon {
+      grid-column: 1 / -1;
+      margin-top: 42px;
+      padding: 18px 4px 0;
+      border-top: 2px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: .04em;
+    }
+    footer.colophon a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+    footer.colophon .stamp {
+      font-family: var(--hand);
+      font-size: 17px;
+      color: var(--tab-deep);
+      transform: rotate(-3deg);
+      border: 2px dashed var(--tab-deep);
+      padding: 4px 12px;
+      border-radius: 4px;
+      letter-spacing: 0;
+    }
+
+    .menu-button {
+      display: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 880px) {
+      .desk { grid-template-columns: 1fr; padding: 16px 14px 60px; gap: 18px; }
+      .masthead { flex-wrap: wrap; }
+      .masthead nav { font-size: 12px; gap: 12px; }
+      aside.tabs {
+        position: static;
+        max-height: none;
+        overflow: visible;
+        order: 3;
+      }
+      aside.tabs.collapsed .stack { display: none; }
+      .menu-button { display: inline-block; align-self: flex-start; }
+      .card { padding: 44px 20px 30px; }
+      .card::before { left: 18px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; scroll-behavior: auto !important; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Clawdex</h1>
-    <p>OpenClaw documentation and project index. Source lives at <a href="https://github.com/openclaw/clawdex">openclaw/clawdex</a>.</p>
-  </main>
+  <div class="desk">
+
+    <header class="masthead">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>clawdex</h1>
+          <span class="tag">your Rolodex, in markdown.</span>
+        </div>
+      </div>
+      <nav>
+        <a href="#/quickstart">Quickstart</a>
+        <a href="#/install">Install</a>
+        <a href="https://github.com/openclaw/clawdex">GitHub</a>
+      </nav>
+    </header>
+
+    <aside class="tabs" aria-label="Documentation index">
+      <button class="menu-button" type="button" aria-expanded="true" aria-controls="tab-stack">Index</button>
+      <div class="stack" id="tab-stack" role="navigation">
+        <h2>Start</h2>
+        <a class="tab" data-slug="index"        href="#/"><span class="num">00</span><span>Overview</span></a>
+        <a class="tab" data-slug="install"      href="#/install"><span class="num">01</span><span>Install</span></a>
+        <a class="tab" data-slug="quickstart"   href="#/quickstart"><span class="num">02</span><span>Quickstart</span></a>
+
+        <h2>Daily Use</h2>
+        <a class="tab" data-slug="people"       href="#/people"><span class="num">03</span><span>People</span></a>
+        <a class="tab" data-slug="notes"        href="#/notes"><span class="num">04</span><span>Notes</span></a>
+        <a class="tab" data-slug="timeline"     href="#/timeline"><span class="num">05</span><span>Timeline</span></a>
+        <a class="tab" data-slug="search"       href="#/search"><span class="num">06</span><span>Search</span></a>
+        <a class="tab" data-slug="avatars"      href="#/avatars"><span class="num">07</span><span>Avatars</span></a>
+
+        <h2>In and Out</h2>
+        <a class="tab" data-slug="imports"      href="#/imports"><span class="num">08</span><span>Imports</span></a>
+        <a class="tab" data-slug="vcard-export" href="#/vcard-export"><span class="num">09</span><span>vCard Export</span></a>
+        <a class="tab" data-slug="git-sync"     href="#/git-sync"><span class="num">10</span><span>Git Sync</span></a>
+
+        <h2>Storage &amp; Care</h2>
+        <a class="tab" data-slug="markdown-storage" href="#/markdown-storage"><span class="num">11</span><span>Markdown Storage</span></a>
+        <a class="tab" data-slug="doctor"       href="#/doctor"><span class="num">12</span><span>Doctor</span></a>
+        <a class="tab" data-slug="config"       href="#/config"><span class="num">13</span><span>Config</span></a>
+
+        <h2>Project</h2>
+        <a class="tab" data-slug="RELEASING"    href="#/RELEASING"><span class="num">14</span><span>Releasing</span></a>
+      </div>
+    </aside>
+
+    <main>
+      <section class="card" id="card" data-tab="overview" aria-live="polite">
+        <div class="meta">
+          <span id="meta-slug">docs/index.md</span>
+          <span class="source">source: <a id="meta-link" href="https://github.com/openclaw/clawdex/blob/main/docs/index.md" target="_blank" rel="noopener">github</a></span>
+        </div>
+        <article id="article">
+          <p class="placeholder">opening the drawer…</p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="colophon">
+      <span>&copy; 2026 Peter Steinberger. Released under MIT.</span>
+      <span class="stamp">filed under: contacts</span>
+      <span><a href="https://github.com/openclaw/clawdex">openclaw/clawdex</a> · <a href="https://github.com/openclaw/clawdex/blob/main/CHANGELOG.md">changelog</a></span>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/go.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/dockerfile.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+
+  <script>
+    (function () {
+      const KNOWN = new Set([
+        "index", "install", "quickstart",
+        "people", "notes", "timeline", "search", "avatars",
+        "imports", "vcard-export", "git-sync",
+        "markdown-storage", "doctor", "config",
+        "RELEASING"
+      ]);
+      const TAB_LABEL = {
+        "index": "overview",
+        "install": "install",
+        "quickstart": "quickstart",
+        "people": "people",
+        "notes": "notes",
+        "timeline": "timeline",
+        "search": "search",
+        "avatars": "avatars",
+        "imports": "imports",
+        "vcard-export": "vcard export",
+        "git-sync": "git sync",
+        "markdown-storage": "storage",
+        "doctor": "doctor",
+        "config": "config",
+        "RELEASING": "releasing"
+      };
+
+      const article = document.getElementById("article");
+      const card    = document.getElementById("card");
+      const metaSlug = document.getElementById("meta-slug");
+      const metaLink = document.getElementById("meta-link");
+      const cache = new Map();
+
+      // Register short aliases highlight.js doesn't ship by default.
+      const ALIASES = { toml: "ini", sh: "bash", shell: "bash", zsh: "bash", txt: "plaintext", text: "plaintext" };
+      function resolveLang(lang) {
+        if (!lang) return "";
+        if (hljs.getLanguage(lang)) return lang;
+        const a = ALIASES[lang.toLowerCase()];
+        if (a && hljs.getLanguage(a)) return a;
+        return "";
+      }
+
+      const renderer = {
+        link(token) {
+          const href = token.href || "";
+          const text = token.text || "";
+          const title = token.title || "";
+          let h = String(href);
+          const m = h.match(/^([A-Za-z0-9_-]+)\.md(#.+)?$/);
+          if (m) h = "#/" + m[1] + (m[2] || "");
+          const t = title ? ` title="${title}"` : "";
+          const ext = /^https?:/.test(h) ? ` target="_blank" rel="noopener"` : "";
+          return `<a href="${h}"${t}${ext}>${text}</a>`;
+        },
+        code(token) {
+          const c = token.text || "";
+          const requested = (token.lang || "").trim();
+          const lang = resolveLang(requested);
+          let html;
+          try {
+            if (lang) {
+              html = hljs.highlight(c, { language: lang, ignoreIllegals: true }).value;
+            } else {
+              const auto = hljs.highlightAuto(c, ["bash", "go", "json", "yaml", "ini", "markdown", "javascript", "xml"]);
+              html = auto.value;
+            }
+          } catch (_) {
+            html = c.replace(/[&<>]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[s]));
+          }
+          const cls = lang ? `language-${lang}` : (requested ? `language-${requested}` : "");
+          return `<pre><code class="hljs ${cls}">${html}</code></pre>`;
+        }
+      };
+      marked.use({ gfm: true, breaks: false, renderer });
+
+      function setActive(slug) {
+        document.querySelectorAll("aside.tabs a.tab").forEach(a => {
+          a.classList.toggle("active", a.dataset.slug === slug);
+        });
+        card.dataset.tab = TAB_LABEL[slug] || slug;
+        const file = (slug === "RELEASING") ? "RELEASING.md" : (slug + ".md");
+        metaSlug.textContent = "docs/" + file;
+        metaLink.href = `https://github.com/openclaw/clawdex/blob/main/docs/${file}`;
+      }
+
+      async function load(slug) {
+        setActive(slug);
+        article.innerHTML = '<p class="placeholder">flipping to ' + slug + '…</p>';
+        let md = cache.get(slug);
+        if (!md) {
+          try {
+            const file = (slug === "RELEASING") ? "RELEASING.md" : (slug + ".md");
+            const res = await fetch("docs/" + file, { headers: { "Accept": "text/plain" } });
+            if (!res.ok) throw new Error(res.status + " " + res.statusText);
+            md = await res.text();
+            cache.set(slug, md);
+          } catch (err) {
+            article.innerHTML = '<p class="placeholder error">card not found: ' + slug + ' — ' + err.message + '</p>';
+            return;
+          }
+        }
+        const dirty = marked.parse(md);
+        const clean = window.DOMPurify ? DOMPurify.sanitize(dirty, { ADD_ATTR: ['target'] }) : dirty;
+        article.innerHTML = clean;
+
+        const sub = location.hash.split("#")[2];
+        if (sub) {
+          const el = document.getElementById(sub);
+          if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function route() {
+        const h = location.hash.replace(/^#\/?/, "").split("#")[0] || "index";
+        const slug = KNOWN.has(h) ? h : "index";
+        load(slug);
+      }
+
+      const tabsAside = document.querySelector("aside.tabs");
+      const menuBtn = tabsAside.querySelector(".menu-button");
+      menuBtn.addEventListener("click", () => {
+        const open = tabsAside.classList.toggle("collapsed");
+        menuBtn.setAttribute("aria-expanded", String(!open));
+      });
+      if (window.matchMedia("(max-width: 880px)").matches) {
+        tabsAside.classList.add("collapsed");
+        menuBtn.setAttribute("aria-expanded", "false");
+      }
+
+      window.addEventListener("hashchange", route);
+      route();
+    })();
+  </script>
 </body>
 </html>
