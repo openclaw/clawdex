@@ -66,6 +66,7 @@ Apple and Google imports write only to the local markdown data repo.
 clawdex import apple --dry-run
 clawdex import apple --avatars
 clawdex import google --account steipete@gmail.com --dry-run
+clawdex import google --account steipete@gmail.com --avatars --dry-run
 clawdex import birdclaw --min-messages 4 --dry-run
 clawdex import discrawl --min-messages 4 --dry-run
 ```
@@ -73,9 +74,11 @@ clawdex import discrawl --min-messages 4 --dry-run
 Apple direct import uses macOS `Contacts.framework`. Linux builds still support
 markdown, notes, search, Git, Google via `gog`, and vCard export.
 
-Avatar imports are opt-in with `--avatars`. clawdex stores thumbnails as local
-files under each person directory and records only metadata in `person.md`.
-Manual avatars are not overwritten by Apple/Google imports.
+Avatar imports are opt-in with `--avatars`. Apple reads thumbnails from
+Contacts.framework. Google uses `gog contacts raw --person-fields photos`,
+fetches the selected photo URL bytes, then stores thumbnails as local files
+under each person directory and records only metadata in `person.md`. Manual
+avatars are not overwritten by Apple/Google imports.
 
 Birdclaw and Discrawl DM imports read local archives only. They import DM
 conversations with more than `--min-messages` messages, add source-specific

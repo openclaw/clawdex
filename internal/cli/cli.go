@@ -443,6 +443,7 @@ func (c *ImportAppleCmd) Run(r *Runtime) error {
 
 type ImportGoogleCmd struct {
 	Account string `name:"account" help:"Google account email"`
+	Avatars bool   `name:"avatars" help:"Fetch Google contact avatar bytes through gog raw photo URLs"`
 }
 
 func (c *ImportGoogleCmd) Run(r *Runtime) error {
@@ -450,7 +451,7 @@ func (c *ImportGoogleCmd) Run(r *Runtime) error {
 	if account == "" {
 		account = r.cfg.Google.DefaultAccount
 	}
-	contacts, err := (google.GogAdapter{}).ListContacts(r.ctx, account)
+	contacts, err := (google.GogAdapter{}).ListContactsWithOptions(r.ctx, account, google.Options{IncludeAvatars: c.Avatars})
 	if err != nil {
 		return err
 	}

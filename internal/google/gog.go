@@ -5,17 +5,40 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/openclaw/clawdex/internal/model"
 )
 
+const (
+	defaultAvatarConcurrency = 4
+	maxAvatarConcurrency     = 8
+	maxAvatarBytes           = 10 << 20
+	avatarLookupTimeout      = 20 * time.Second
+)
+
+type Options struct {
+	IncludeAvatars    bool
+	AvatarConcurrency int
+}
+
+type AvatarFetchFunc func(context.Context, string) (model.SourceAvatar, error)
+
 type GogAdapter struct {
-	Binary string
+	Binary      string
+	FetchAvatar AvatarFetchFunc
 }
 
 func (g GogAdapter) ListContacts(ctx context.Context, account string) ([]model.SourceContact, error) {
+	return g.ListContactsWithOptions(ctx, account, Options{})
+}
+
+func (g GogAdapter) ListContactsWithOptions(ctx context.Context, account string, opts Options) ([]model.SourceContact, error) {
 	binary := g.Binary
 	if binary == "" {
 		binary = "gog"
@@ -46,10 +69,97 @@ func (g GogAdapter) ListContacts(ctx context.Context, account string) ([]model.S
 		}
 		out = append(out, contacts...)
 		if nextPage == "" {
+			if opts.IncludeAvatars {
+				g.attachAvatars(ctx, binary, account, out, opts.avatarConcurrency())
+			}
 			return out, nil
 		}
 		page = nextPage
 	}
+}
+
+func (o Options) avatarConcurrency() int {
+	if o.AvatarConcurrency <= 0 {
+		return defaultAvatarConcurrency
+	}
+	if o.AvatarConcurrency > maxAvatarConcurrency {
+		return maxAvatarConcurrency
+	}
+	return o.AvatarConcurrency
+}
+
+func (g GogAdapter) attachAvatars(ctx context.Context, binary string, account string, contacts []model.SourceContact, concurrency int) {
+	if len(contacts) == 0 {
+		return
+	}
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	if concurrency > len(contacts) {
+		concurrency = len(contacts)
+	}
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for range concurrency {
+		wg.Go(func() {
+			for i := range jobs {
+				g.attachAvatar(ctx, binary, account, &contacts[i])
+			}
+		})
+	}
+	for i := range contacts {
+		select {
+		case <-ctx.Done():
+			close(jobs)
+			wg.Wait()
+			return
+		case jobs <- i:
+		}
+	}
+	close(jobs)
+	wg.Wait()
+}
+
+func (g GogAdapter) attachAvatar(ctx context.Context, binary string, account string, contact *model.SourceContact) {
+	if ctx.Err() != nil || contact == nil {
+		return
+	}
+	if strings.TrimSpace(contact.ExternalID) == "" || contact.Avatar != nil {
+		return
+	}
+	lookupCtx, cancel := context.WithTimeout(ctx, avatarLookupTimeout)
+	defer cancel()
+	raw, err := g.rawContact(lookupCtx, binary, account, contact.ExternalID)
+	if err != nil {
+		return
+	}
+	url, err := parseGogPhotoURL(raw)
+	if err != nil || url == "" {
+		return
+	}
+	avatar, err := g.fetchAvatar(lookupCtx, url)
+	if err != nil || len(avatar.Data) == 0 {
+		return
+	}
+	avatar.URL = url
+	contact.Avatar = &avatar
+}
+
+func (g GogAdapter) rawContact(ctx context.Context, binary string, account string, identifier string) ([]byte, error) {
+	args := []string{"--no-input", "contacts", "raw", identifier, "--person-fields", "photos", "--json"}
+	if strings.TrimSpace(account) != "" {
+		args = append([]string{"--account", account}, args...)
+	}
+	// #nosec G204 -- the adapter intentionally shells to a configured gog binary without using a shell.
+	cmd := exec.CommandContext(ctx, binary, args...)
+	return cmd.Output()
+}
+
+func (g GogAdapter) fetchAvatar(ctx context.Context, url string) (model.SourceAvatar, error) {
+	if g.FetchAvatar != nil {
+		return g.FetchAvatar(ctx, url)
+	}
+	return fetchAvatarURL(ctx, url)
 }
 
 type gogEnvelope struct {
@@ -142,6 +252,78 @@ func convertPeople(people []gogPerson) []model.SourceContact {
 		}
 	}
 	return out
+}
+
+type gogPhotoEnvelope struct {
+	Contact *gogPhotoPerson `json:"contact"`
+	Person  *gogPhotoPerson `json:"person"`
+	Photos  []gogPhoto      `json:"photos"`
+}
+
+type gogPhotoPerson struct {
+	Photos []gogPhoto `json:"photos"`
+}
+
+type gogPhoto struct {
+	URL      string `json:"url"`
+	Metadata struct {
+		Primary bool `json:"primary"`
+	} `json:"metadata"`
+}
+
+func parseGogPhotoURL(data []byte) (string, error) {
+	var env gogPhotoEnvelope
+	if err := json.Unmarshal(data, &env); err != nil {
+		return "", err
+	}
+	photos := env.Photos
+	if len(photos) == 0 && env.Contact != nil {
+		photos = env.Contact.Photos
+	}
+	if len(photos) == 0 && env.Person != nil {
+		photos = env.Person.Photos
+	}
+	for _, photo := range photos {
+		if photo.Metadata.Primary && strings.TrimSpace(photo.URL) != "" {
+			return strings.TrimSpace(photo.URL), nil
+		}
+	}
+	for _, photo := range photos {
+		if strings.TrimSpace(photo.URL) != "" {
+			return strings.TrimSpace(photo.URL), nil
+		}
+	}
+	return "", nil
+}
+
+func fetchAvatarURL(ctx context.Context, url string) (model.SourceAvatar, error) {
+	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		return model.SourceAvatar{}, fmt.Errorf("unsupported avatar URL: %s", url)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return model.SourceAvatar{}, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return model.SourceAvatar{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return model.SourceAvatar{}, fmt.Errorf("avatar fetch failed: HTTP %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAvatarBytes+1))
+	if err != nil {
+		return model.SourceAvatar{}, err
+	}
+	if len(data) > maxAvatarBytes {
+		return model.SourceAvatar{}, errors.New("avatar too large")
+	}
+	mime := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if idx := strings.IndexByte(mime, ';'); idx >= 0 {
+		mime = strings.TrimSpace(mime[:idx])
+	}
+	return model.SourceAvatar{Data: data, MIME: mime, URL: url}, nil
 }
 
 func firstNonEmpty(values ...string) string {
