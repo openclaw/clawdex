@@ -1,0 +1,46 @@
+version: "2"
+
+linters:
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - dupword
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exptostd
+    - gocheckcompilerdirectives
+    - gocritic
+    - gomoddirectives
+    - govet
+    - intrange
+    - ineffassign
+    - makezero
+    - misspell
+    - modernize
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unused
+    - usetesting
+    - usestdlibvars
+    - wastedassign
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
