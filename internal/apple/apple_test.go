@@ -1,6 +1,8 @@
 package apple
 
 import (
+	"bytes"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +21,7 @@ func TestDecodeJSONArrayAndNDJSON(t *testing.T) {
 		if len(contacts) != 1 || contacts[0].Name() != "Ada Lovelace" {
 			t.Fatalf("contacts = %#v", contacts)
 		}
-		src := contacts[0].SourceContact()
+		src := contacts[0].SourceContact(false)
 		if src.Source != "apple" || src.ExternalID != "a1" || src.Name != "Ada Lovelace" {
 			t.Fatalf("source = %#v", src)
 		}
@@ -28,16 +30,20 @@ func TestDecodeJSONArrayAndNDJSON(t *testing.T) {
 
 func TestReadFileAndToSourceContacts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "contacts.ndjson")
-	if err := os.WriteFile(path, []byte("{\"full_name\":\"Ada\",\"emails\":[\"ada@example.com\"]}\n{\"phones\":[\"+1\"]}\n"), 0o600); err != nil {
+	encoded := base64.StdEncoding.EncodeToString([]byte("avatar"))
+	if err := os.WriteFile(path, []byte("{\"full_name\":\"Ada\",\"emails\":[\"ada@example.com\"],\"avatar_data\":\""+encoded+"\"}\n{\"phones\":[\"+1\"]}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	contacts, err := ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sources := ToSourceContacts(contacts)
+	sources := ToSourceContacts(contacts, true)
 	if len(sources) != 1 || sources[0].Name != "Ada" {
 		t.Fatalf("sources = %#v", sources)
+	}
+	if sources[0].Avatar == nil || string(sources[0].Avatar.Data) != "avatar" {
+		t.Fatalf("avatar source = %#v", sources[0].Avatar)
 	}
 }
 
@@ -51,5 +57,17 @@ func TestDecodeEmptyAndInvalid(t *testing.T) {
 	}
 	if _, err := ReadFile(filepath.Join(t.TempDir(), "missing")); err == nil {
 		t.Fatal("expected read file error")
+	}
+}
+
+func TestDecodeLargeAvatarLine(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 128*1024))
+	input := "{\"identifier\":\"a1\",\"full_name\":\"Ada\",\"emails\":[\"ada@example.com\"],\"avatar_data\":\"" + encoded + "\"}\n"
+	contacts, err := Decode(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contacts) != 1 || len(contacts[0].AvatarData) != 128*1024 {
+		t.Fatalf("contacts = %#v", contacts)
 	}
 }

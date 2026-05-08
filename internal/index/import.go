@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openclaw/clawdex/internal/avatar"
 	"github.com/openclaw/clawdex/internal/markdown"
 	"github.com/openclaw/clawdex/internal/model"
 )
@@ -35,6 +36,19 @@ func (s Store) ImportContacts(source string, contacts []model.SourceContact, dry
 				if err != nil {
 					return nil, err
 				}
+				if contact.Avatar != nil {
+					withAvatar, _, err := avatar.SetImported(created, *contact.Avatar, source, now)
+					if err != nil {
+						return nil, err
+					}
+					if withAvatar.Avatar.Path != "" {
+						withAvatar.UpdatedAt = now.UTC()
+						if err := markdown.WritePerson(withAvatar.Path, withAvatar); err != nil {
+							return nil, err
+						}
+						created = withAvatar
+					}
+				}
 				change.PersonID = created.ID
 				change.Path = created.Path
 				people = append(people, created)
@@ -49,15 +63,24 @@ func (s Store) ImportContacts(source string, contacts []model.SourceContact, dry
 		beforeAccounts := cloneAccounts(p.Accounts)
 		beforeApple := p.Apple
 		beforeGoogle := p.Google
+		beforeAvatar := p.Avatar
 		p.Tags = appendMissingStrings(p.Tags, contact.Tags)
 		p.Emails = appendMissingValues(p.Emails, contact.Emails, source)
 		p.Phones = appendMissingValues(p.Phones, contact.Phones, source)
 		p.Accounts = mergeAccounts(p.Accounts, contact.Accounts)
 		setExternal(&p, source, contact, now)
+		avatarChanged := avatarWouldChange(beforeAvatar, contact.Avatar, source)
+		if !dryRun && contact.Avatar != nil {
+			var err error
+			p, avatarChanged, err = avatar.SetImported(p, *contact.Avatar, source, now)
+			if err != nil {
+				return nil, err
+			}
+		}
 		externalChanged := p.Apple != beforeApple || p.Google != beforeGoogle
 		tagsChanged := strings.Join(beforeTags, "\x00") != strings.Join(p.Tags, "\x00")
 		accountsChanged := !accountsEqual(beforeAccounts, p.Accounts)
-		if len(p.Emails) == beforeEmails && len(p.Phones) == beforePhones && !tagsChanged && !accountsChanged && !externalChanged {
+		if len(p.Emails) == beforeEmails && len(p.Phones) == beforePhones && !tagsChanged && !accountsChanged && !externalChanged && !avatarChanged {
 			continue
 		}
 		change := model.ImportChange{Action: "update", PersonID: p.ID, Name: p.Name, Source: contact, Path: p.Path}
@@ -74,6 +97,24 @@ func (s Store) ImportContacts(source string, contacts []model.SourceContact, dry
 		return changes, s.Rebuild()
 	}
 	return changes, nil
+}
+
+func avatarWouldChange(current model.AvatarRef, incoming *model.SourceAvatar, source string) bool {
+	if incoming == nil || len(incoming.Data) == 0 {
+		return false
+	}
+	sha := incoming.SHA256
+	if sha == "" {
+		inspected, err := avatar.InspectBytes(incoming.Data)
+		if err != nil {
+			return false
+		}
+		sha = inspected.SHA256
+	}
+	if current.SHA256 == sha {
+		return false
+	}
+	return current.Path == "" || current.Source == "" || current.Source == source
 }
 
 func matchContact(people []model.Person, contact model.SourceContact) int {

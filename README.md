@@ -48,9 +48,11 @@ clawdex person add "Sally O'Malley" --email sally@example.com --tag friend
 clawdex note add sally --kind dm --source whatsapp --text "Follow up about dinner"
 clawdex person list
 clawdex person show sally
+clawdex person avatar set sally ~/Pictures/sally.jpg
+clawdex person avatar show sally --path
 clawdex timeline sally
 clawdex search dinner
-clawdex export vcard --all -o contacts.vcf
+clawdex export vcard --all --include-avatars -o contacts.vcf
 clawdex git status
 clawdex git commit -m "sync: update contacts"
 clawdex git push
@@ -62,7 +64,7 @@ Apple and Google imports write only to the local markdown data repo.
 
 ```bash
 clawdex import apple --dry-run
-clawdex import apple
+clawdex import apple --avatars
 clawdex import google --account steipete@gmail.com --dry-run
 clawdex import birdclaw --min-messages 4 --dry-run
 clawdex import discrawl --min-messages 4 --dry-run
@@ -70,6 +72,10 @@ clawdex import discrawl --min-messages 4 --dry-run
 
 Apple direct import uses macOS `Contacts.framework`. Linux builds still support
 markdown, notes, search, Git, Google via `gog`, and vCard export.
+
+Avatar imports are opt-in with `--avatars`. clawdex stores thumbnails as local
+files under each person directory and records only metadata in `person.md`.
+Manual avatars are not overwritten by Apple/Google imports.
 
 Birdclaw and Discrawl DM imports read local archives only. They import DM
 conversations with more than `--min-messages` messages, add source-specific
@@ -89,6 +95,8 @@ parses strictly first, then does best-effort repair when frontmatter is damaged:
 - preserve the Markdown body
 - copy the original file under `.clawdex/repairs/`
 - append damaged metadata to the body under `Recovered metadata`
+- warn about missing or stale avatar files and repair avatar metadata when the
+  image still exists
 
 Preview repairs:
 
@@ -108,6 +116,8 @@ clawdex doctor --repair
 people/
   sally-o-malley/
     person.md
+    avatars/
+      avatar.jpg
     notes/
       2026-05-08T09-15-00Z-whatsapp.md
     attachments/

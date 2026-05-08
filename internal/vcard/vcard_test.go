@@ -3,6 +3,8 @@ package vcard
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,6 +28,53 @@ func TestWriteVCard(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in %s", want, out)
 		}
+	}
+}
+
+func TestWriteVCardWithAvatar(t *testing.T) {
+	dir := t.TempDir()
+	avatarPath := filepath.Join(dir, "avatars", "avatar.png")
+	if err := os.MkdirAll(filepath.Dir(avatarPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(avatarPath, []byte("pngish"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	person := model.Person{
+		ID:   "person_1",
+		Name: "Ada Lovelace",
+		Path: filepath.Join(dir, "person.md"),
+		Avatar: model.AvatarRef{
+			Path: "avatars/avatar.png",
+			MIME: "image/png",
+		},
+	}
+	var buf bytes.Buffer
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{IncludeAvatars: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "PHOTO:data:image/png;base64,") {
+		t.Fatalf("missing photo: %s", buf.String())
+	}
+	person.Avatar.MIME = ""
+	buf.Reset()
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{IncludeAvatars: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "PHOTO:data:application/octet-stream;base64,") {
+		t.Fatalf("missing default photo mime: %s", buf.String())
+	}
+	person.Avatar.Path = filepath.Join(dir, "avatars", "avatar.png")
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{IncludeAvatars: true}); err == nil {
+		t.Fatal("expected absolute avatar path error")
+	}
+	person.Avatar.Path = "../avatar.png"
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{IncludeAvatars: true}); err == nil {
+		t.Fatal("expected escaped avatar path error")
+	}
+	person.Avatar.Path = "avatars/missing.png"
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{IncludeAvatars: true}); err == nil {
+		t.Fatal("expected missing avatar error")
 	}
 }
 

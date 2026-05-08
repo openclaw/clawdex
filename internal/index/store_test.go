@@ -1,6 +1,9 @@
 package index
 
 import (
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -29,6 +32,100 @@ func TestAddNoteAndSearch(t *testing.T) {
 	}
 	if len(hits) != 1 || hits[0].Kind != "note" {
 		t.Fatalf("hits = %#v", hits)
+	}
+}
+
+func TestAvatarSetAndImportBackfill(t *testing.T) {
+	r := testRepo(t)
+	s := New(r)
+	img := filepath.Join(t.TempDir(), "avatar.png")
+	writeTestPNG(t, img)
+	data, err := os.ReadFile(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.AddPerson("Ada Avatar", []string{"avatar@example.com"}, nil, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.SetAvatar("avatar@example.com", img, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Avatar.Source != "manual" {
+		t.Fatalf("avatar = %#v", p.Avatar)
+	}
+	p, err = s.ClearAvatar("avatar@example.com", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Avatar.Path != "" {
+		t.Fatalf("clear avatar = %#v", p.Avatar)
+	}
+	_, err = s.SetAvatar("avatar@example.com", img, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := s.ImportContacts("apple", []model.SourceContact{{
+		ExternalID: "a1",
+		Name:       "Ada Avatar",
+		Emails:     []model.ContactValue{{Value: "avatar@example.com"}},
+		Avatar:     &model.SourceAvatar{Data: data},
+	}}, false, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 1 {
+		t.Fatalf("expected external update without manual avatar overwrite, changes = %#v", changes)
+	}
+	p, err = s.FindPerson("avatar@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Avatar.Source != "manual" {
+		t.Fatalf("manual avatar overwritten: %#v", p.Avatar)
+	}
+
+	changes, err = s.ImportContacts("apple", []model.SourceContact{{
+		ExternalID: "a2",
+		Name:       "Apple Avatar",
+		Emails:     []model.ContactValue{{Value: "apple-avatar@example.com"}},
+		Avatar:     &model.SourceAvatar{Data: data},
+	}}, false, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 1 || changes[0].Action != "create" {
+		t.Fatalf("changes = %#v", changes)
+	}
+	p, err = s.FindPerson("apple-avatar@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Avatar.Source != "apple" || p.Avatar.Path != "avatars/avatar.png" {
+		t.Fatalf("imported avatar = %#v", p.Avatar)
+	}
+	p.Avatar.SHA256 = "stale"
+	if err := markdown.WritePerson(p.Path, p); err != nil {
+		t.Fatal(err)
+	}
+	p, changed, err := s.RepairAvatarMetadata(p, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || p.Avatar.SHA256 == "stale" {
+		t.Fatalf("metadata repair failed: changed=%v avatar=%#v", changed, p.Avatar)
+	}
+	p.Avatar.Path = "avatars/missing.png"
+	if err := markdown.WritePerson(p.Path, p); err != nil {
+		t.Fatal(err)
+	}
+	p, changed, err = s.RepairAvatarMetadata(p, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || p.Avatar.Path != "" {
+		t.Fatalf("missing avatar was not cleared: changed=%v avatar=%#v", changed, p.Avatar)
 	}
 }
 
@@ -321,6 +418,59 @@ func TestPeopleAutoRepairRebuildAccountsAndImportNoop(t *testing.T) {
 	}
 }
 
+func TestPeopleAndNotesForgivingBranches(t *testing.T) {
+	r := testRepo(t)
+	s := New(r)
+	if err := os.WriteFile(filepath.Join(r.PeopleDir(), "not-a-dir"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(r.PeopleDir(), "empty-dir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	brokenPath := filepath.Join(r.PeopleDir(), "broken-person", "person.md")
+	if err := os.MkdirAll(filepath.Dir(brokenPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(brokenPath, []byte("---\nid: person_broken\nname: Broken Person\ntags: [oops\n---\n# Broken Person\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	people, err := s.People()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(people) != 1 || people[0].Name != "Broken Person" {
+		t.Fatalf("people = %#v", people)
+	}
+	notesDir := filepath.Join(filepath.Dir(people[0].Path), "notes")
+	if err := os.MkdirAll(filepath.Join(notesDir, "subdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(notesDir, "skip.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	note := markdown.NewNote("", "note", "manual", "missing person id", time.Now(), time.Now(), nil)
+	note.PersonID = ""
+	if err := markdown.WriteNote(filepath.Join(notesDir, "2026-note.md"), note); err != nil {
+		t.Fatal(err)
+	}
+	notes, err := s.Notes("Broken Person")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 1 || notes[0].PersonID != "person_broken" {
+		t.Fatalf("notes = %#v", notes)
+	}
+	if err := os.RemoveAll(r.IndexDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(r.IndexDir(), []byte("not dir"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Rebuild(); err == nil {
+		t.Fatal("expected index dir mkdir error")
+	}
+}
+
 func TestImportMatchesPhoneAndGoogleExternal(t *testing.T) {
 	r := testRepo(t)
 	s := New(r)
@@ -357,6 +507,23 @@ func testRepo(t *testing.T) repo.Repo {
 		t.Fatalf("bad people dir: %s", r.PeopleDir())
 	}
 	return r
+}
+
+func writeTestPNG(t *testing.T, path string) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{G: 255, A: 255})
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func stringIn(values []string, want string) bool {

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,6 +45,24 @@ func TestExecuteEndToEndLocalCommands(t *testing.T) {
 	if !strings.Contains(out, "email: ada@example.com") {
 		t.Fatalf("show out = %s", out)
 	}
+	avatarPath := filepath.Join(t.TempDir(), "avatar.png")
+	writeCLITestPNG(t, avatarPath)
+	out = run("person", "avatar", "set", "ada@example.com", avatarPath)
+	if !strings.Contains(out, `"path": "avatars/avatar.png"`) {
+		t.Fatalf("avatar set out = %s", out)
+	}
+	out = run("person", "avatar", "show", "ada@example.com", "--path")
+	if !strings.Contains(out, "avatars/avatar.png") {
+		t.Fatalf("avatar show path = %s", out)
+	}
+	out = run("person", "avatar", "show", "ada@example.com")
+	if !strings.Contains(out, `"mime": "image/png"`) {
+		t.Fatalf("avatar show = %s", out)
+	}
+	out = run("--dry-run", "person", "avatar", "set", "ada@example.com", avatarPath)
+	if !strings.Contains(out, "would_set_avatar") {
+		t.Fatalf("avatar dry set out = %s", out)
+	}
 	out = run("note", "add", "ada", "--kind", "dm", "--source", "manual", "--text", "Analytical engine")
 	if !strings.Contains(out, "dm\tmanual") {
 		t.Fatalf("note out = %s", out)
@@ -59,12 +80,24 @@ func TestExecuteEndToEndLocalCommands(t *testing.T) {
 		t.Fatalf("search out = %s", out)
 	}
 	vcardPath := filepath.Join(t.TempDir(), "contacts.vcf")
-	out = run("export", "vcard", "--all", "-o", vcardPath)
+	out = run("export", "vcard", "--all", "--include-avatars", "-o", vcardPath)
 	if !strings.Contains(out, "exported: 1") {
 		t.Fatalf("export out = %s", out)
 	}
 	if data, err := os.ReadFile(vcardPath); err != nil || !strings.Contains(string(data), "BEGIN:VCARD") {
 		t.Fatalf("vcard data=%q err=%v", data, err)
+	}
+	out = run("person", "avatar", "clear", "ada@example.com")
+	if !strings.Contains(out, "Ada Lovelace") {
+		t.Fatalf("avatar clear out = %s", out)
+	}
+	out = run("--dry-run", "person", "avatar", "clear", "ada@example.com")
+	if !strings.Contains(out, "would_clear_avatar") {
+		t.Fatalf("avatar dry clear out = %s", out)
+	}
+	var noAvatarOut, noAvatarErr bytes.Buffer
+	if err := Execute([]string{"--config", cfg, "person", "avatar", "show", "ada@example.com"}, &noAvatarOut, &noAvatarErr); err == nil {
+		t.Fatal("expected no avatar error")
 	}
 	out = run("sync", "apple")
 	if !strings.Contains(out, "remote writes not implemented") {
@@ -81,6 +114,27 @@ func TestExecuteEndToEndLocalCommands(t *testing.T) {
 	out = run("git", "commit", "-m", "test: contacts")
 	if !strings.Contains(out, "committed: true") {
 		t.Fatalf("git commit out = %s", out)
+	}
+	out = run("git", "commit", "-m", "test: no changes")
+	if !strings.Contains(out, "committed: false") {
+		t.Fatalf("git commit clean out = %s", out)
+	}
+}
+
+func writeCLITestPNG(t *testing.T, path string) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 255, A: 255})
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -420,6 +474,23 @@ func TestExecuteEditorExportPersonAndRepair(t *testing.T) {
 	if !strings.Contains(out.String(), "repaired: 1") {
 		t.Fatalf("repair = %s", out.String())
 	}
+	if err := os.WriteFile(personPath, []byte("---\nid: person_x\nname: Ada Edit\navatar:\n  path: avatars/missing.png\n---\n# Ada Edit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := Execute([]string{"--config", cfg, "--dry-run", "doctor", "--repair"}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "avatar_problems: 1") || !strings.Contains(out.String(), "avatar_repaired: 1") {
+		t.Fatalf("avatar repair dry-run = %s", out.String())
+	}
+	out.Reset()
+	if err := Execute([]string{"--config", cfg, "doctor", "--repair"}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "avatar_repaired: 1") {
+		t.Fatalf("avatar repair = %s", out.String())
+	}
 }
 
 func TestExecuteUsageGuards(t *testing.T) {
@@ -433,6 +504,8 @@ func TestExecuteUsageGuards(t *testing.T) {
 		{"--config", cfg, "note", "add", "nobody", "--kind", "note", "--source", "manual", "--text", "x", "--occurred-at", "bad"},
 		{"--config", cfg, "export", "vcard", "-o", filepath.Join(t.TempDir(), "x.vcf")},
 		{"--config", cfg, "person", "show", "missing"},
+		{"--config", cfg, "person", "avatar", "clear", "missing"},
+		{"--config", cfg, "--dry-run", "person", "avatar", "set", "nobody", filepath.Join(t.TempDir(), "missing.png")},
 	} {
 		out.Reset()
 		errOut.Reset()

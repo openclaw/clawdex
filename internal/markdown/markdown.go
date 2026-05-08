@@ -218,6 +218,7 @@ type personFront struct {
 	Tags      []string             `yaml:"tags,omitempty"`
 	Emails    []model.ContactValue `yaml:"emails,omitempty"`
 	Phones    []model.ContactValue `yaml:"phones,omitempty"`
+	Avatar    *model.AvatarRef     `yaml:"avatar,omitempty"`
 	Accounts  map[string][]string  `yaml:"accounts,omitempty"`
 	Apple     *model.ExternalRef   `yaml:"apple,omitempty"`
 	Google    *model.ExternalRef   `yaml:"google,omitempty"`
@@ -233,6 +234,7 @@ func personFrontmatter(p model.Person) personFront {
 		Tags:      p.Tags,
 		Emails:    p.Emails,
 		Phones:    p.Phones,
+		Avatar:    nonEmptyAvatar(p.Avatar),
 		Accounts:  nonEmptyAccounts(p.Accounts),
 		Apple:     nonEmptyExternal(p.Apple),
 		Google:    nonEmptyExternal(p.Google),
@@ -273,6 +275,13 @@ func noteFrontmatter(n model.Note) noteFront {
 		FollowUpAt: nonZeroTime(n.FollowUpAt),
 		Privacy:    n.Privacy,
 	}
+}
+
+func nonEmptyAvatar(ref model.AvatarRef) *model.AvatarRef {
+	if ref.Path == "" && ref.Source == "" && ref.MIME == "" && ref.SHA256 == "" && ref.Width == 0 && ref.Height == 0 && ref.UpdatedAt.IsZero() {
+		return nil
+	}
+	return &ref
 }
 
 func nonEmptyExternal(ref model.ExternalRef) *model.ExternalRef {

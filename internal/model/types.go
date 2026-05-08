@@ -16,6 +16,16 @@ type ExternalRef struct {
 	LastSeenAt time.Time `json:"last_seen_at,omitzero" yaml:"last_seen_at,omitempty"`
 }
 
+type AvatarRef struct {
+	Path      string    `json:"path,omitempty" yaml:"path,omitempty"`
+	Source    string    `json:"source,omitempty" yaml:"source,omitempty"`
+	MIME      string    `json:"mime,omitempty" yaml:"mime,omitempty"`
+	SHA256    string    `json:"sha256,omitempty" yaml:"sha256,omitempty"`
+	Width     int       `json:"width,omitempty" yaml:"width,omitempty"`
+	Height    int       `json:"height,omitempty" yaml:"height,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitzero" yaml:"updated_at,omitempty"`
+}
+
 type Person struct {
 	ID        string                    `json:"id" yaml:"id"`
 	Name      string                    `json:"name" yaml:"name"`
@@ -23,6 +33,7 @@ type Person struct {
 	Tags      []string                  `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Emails    []ContactValue            `json:"emails,omitempty" yaml:"emails,omitempty"`
 	Phones    []ContactValue            `json:"phones,omitempty" yaml:"phones,omitempty"`
+	Avatar    AvatarRef                 `json:"avatar,omitzero" yaml:"avatar,omitempty"`
 	Accounts  map[string][]string       `json:"accounts,omitempty" yaml:"accounts,omitempty"`
 	Apple     ExternalRef               `json:"apple,omitzero" yaml:"apple,omitempty"`
 	Google    ExternalRef               `json:"google,omitzero" yaml:"google,omitempty"`

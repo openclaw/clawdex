@@ -17,6 +17,7 @@ type Contact struct {
 	FullName   string   `json:"full_name"`
 	Emails     []string `json:"emails"`
 	Phones     []string `json:"phones"`
+	AvatarData []byte   `json:"avatar_data,omitempty"`
 }
 
 func (c Contact) Name() string {
@@ -26,7 +27,7 @@ func (c Contact) Name() string {
 	return strings.TrimSpace(strings.Join([]string{c.FirstName, c.LastName}, " "))
 }
 
-func (c Contact) SourceContact() model.SourceContact {
+func (c Contact) SourceContact(includeAvatar bool) model.SourceContact {
 	out := model.SourceContact{Source: "apple", ExternalID: c.Identifier, Name: c.Name()}
 	for i, email := range c.Emails {
 		if strings.TrimSpace(email) != "" {
@@ -37,6 +38,9 @@ func (c Contact) SourceContact() model.SourceContact {
 		if strings.TrimSpace(phone) != "" {
 			out.Phones = append(out.Phones, model.ContactValue{Value: phone, Label: "other", Source: "apple", Primary: i == 0})
 		}
+	}
+	if includeAvatar && len(c.AvatarData) > 0 {
+		out.Avatar = &model.SourceAvatar{Data: append([]byte(nil), c.AvatarData...)}
 	}
 	return out
 }
@@ -68,6 +72,7 @@ func Decode(r io.Reader) ([]Contact, error) {
 	}
 	var contacts []Contact
 	scanner := bufio.NewScanner(strings.NewReader(trimmed))
+	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -82,13 +87,13 @@ func Decode(r io.Reader) ([]Contact, error) {
 	return contacts, scanner.Err()
 }
 
-func ToSourceContacts(contacts []Contact) []model.SourceContact {
+func ToSourceContacts(contacts []Contact, includeAvatars bool) []model.SourceContact {
 	out := make([]model.SourceContact, 0, len(contacts))
 	for _, contact := range contacts {
 		if strings.TrimSpace(contact.Name()) == "" {
 			continue
 		}
-		out = append(out, contact.SourceContact())
+		out = append(out, contact.SourceContact(includeAvatars))
 	}
 	return out
 }

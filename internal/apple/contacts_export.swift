@@ -8,6 +8,7 @@ struct ClawdexContact: Codable {
     let full_name: String
     let emails: [String]
     let phones: [String]
+    let avatar_data: Data?
 }
 
 func fail(_ message: String) -> Never {
@@ -49,6 +50,7 @@ let keys: [CNKeyDescriptor] = [
     CNContactOrganizationNameKey as CNKeyDescriptor,
     CNContactEmailAddressesKey as CNKeyDescriptor,
     CNContactPhoneNumbersKey as CNKeyDescriptor,
+    CNContactThumbnailImageDataKey as CNKeyDescriptor,
 ]
 
 let request = CNContactFetchRequest(keysToFetch: keys)
@@ -72,7 +74,8 @@ do {
             last_name: contact.familyName,
             full_name: fullName,
             emails: emails,
-            phones: phones
+            phones: phones,
+            avatar_data: contact.thumbnailImageData
         )
         if let data = try? encoder.encode(row),
            let line = String(data: data, encoding: .utf8) {

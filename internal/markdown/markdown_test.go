@@ -152,6 +152,8 @@ func TestWritePersonOmitsEmptyStructsButKeepsNonEmpty(t *testing.T) {
 	path := filepath.Join(dir, "person.md")
 	p := NewPerson("Ada", time.Now())
 	p.Accounts = map[string][]string{"github": {"ada"}}
+	p.Avatar.Path = "avatars/avatar.png"
+	p.Avatar.Source = "manual"
 	p.Google.Resource = "people/c1"
 	if err := WritePerson(path, p); err != nil {
 		t.Fatal(err)
@@ -161,7 +163,7 @@ func TestWritePersonOmitsEmptyStructsButKeepsNonEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	if !strings.Contains(text, "accounts:") || !strings.Contains(text, "google:") || strings.Contains(text, "apple:") {
+	if !strings.Contains(text, "accounts:") || !strings.Contains(text, "avatar:") || !strings.Contains(text, "google:") || strings.Contains(text, "apple:") {
 		t.Fatalf("frontmatter = %s", text)
 	}
 }

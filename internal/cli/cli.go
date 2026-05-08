@@ -14,6 +14,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/openclaw/clawdex/internal/apple"
+	"github.com/openclaw/clawdex/internal/avatar"
 	"github.com/openclaw/clawdex/internal/birdclaw"
 	"github.com/openclaw/clawdex/internal/discrawl"
 	"github.com/openclaw/clawdex/internal/google"
@@ -183,10 +184,11 @@ func (c *ConfigSetCmd) Run(r *Runtime) error {
 }
 
 type PersonCmd struct {
-	Add  PersonAddCmd  `cmd:"" help:"Add a person"`
-	List PersonListCmd `cmd:"" help:"List people"`
-	Show PersonShowCmd `cmd:"" help:"Show a person"`
-	Edit PersonEditCmd `cmd:"" help:"Edit a person markdown file"`
+	Add    PersonAddCmd    `cmd:"" help:"Add a person"`
+	List   PersonListCmd   `cmd:"" help:"List people"`
+	Show   PersonShowCmd   `cmd:"" help:"Show a person"`
+	Edit   PersonEditCmd   `cmd:"" help:"Edit a person markdown file"`
+	Avatar PersonAvatarCmd `cmd:"" help:"Manage person avatars"`
 }
 
 type PersonAddCmd struct {
@@ -263,6 +265,81 @@ func (c *PersonEditCmd) Run(r *Runtime) error {
 	cmd.Stderr = r.stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+type PersonAvatarCmd struct {
+	Set   PersonAvatarSetCmd   `cmd:"" help:"Set a local avatar image"`
+	Show  PersonAvatarShowCmd  `cmd:"" help:"Show avatar metadata"`
+	Clear PersonAvatarClearCmd `cmd:"" help:"Clear avatar metadata"`
+}
+
+type PersonAvatarSetCmd struct {
+	Person string `arg:"" help:"Person query"`
+	File   string `arg:"" help:"Image file"`
+}
+
+func (c *PersonAvatarSetCmd) Run(r *Runtime) error {
+	p, err := r.store.FindPerson(c.Person)
+	if err != nil {
+		return err
+	}
+	if r.root.DryRun {
+		ref, err := avatar.InspectFile(c.File)
+		if err != nil {
+			return err
+		}
+		ref.Path = "avatars/avatar"
+		ref.Source = "manual"
+		return r.print(map[string]any{"would_set_avatar": p.ID, "mime": ref.MIME, "sha256": ref.SHA256})
+	}
+	p, err = r.store.SetAvatar(c.Person, c.File, time.Now())
+	if err != nil {
+		return err
+	}
+	return r.print(p.Avatar)
+}
+
+type PersonAvatarShowCmd struct {
+	Person string `arg:"" help:"Person query"`
+	Path   bool   `name:"path" help:"Print absolute avatar path only"`
+}
+
+func (c *PersonAvatarShowCmd) Run(r *Runtime) error {
+	p, err := r.store.FindPerson(c.Person)
+	if err != nil {
+		return err
+	}
+	if p.Avatar.Path == "" {
+		return fmt.Errorf("%s has no avatar", p.Name)
+	}
+	if c.Path {
+		path, err := avatar.AbsolutePath(p)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(r.stdout, path)
+		return err
+	}
+	return r.print(p.Avatar)
+}
+
+type PersonAvatarClearCmd struct {
+	Person string `arg:"" help:"Person query"`
+}
+
+func (c *PersonAvatarClearCmd) Run(r *Runtime) error {
+	p, err := r.store.FindPerson(c.Person)
+	if err != nil {
+		return err
+	}
+	if r.root.DryRun {
+		return r.print(map[string]any{"would_clear_avatar": p.ID})
+	}
+	p, err = r.store.ClearAvatar(c.Person, time.Now())
+	if err != nil {
+		return err
+	}
+	return r.printPerson(p)
 }
 
 type NoteCmd struct {
@@ -342,7 +419,8 @@ type ImportCmd struct {
 }
 
 type ImportAppleCmd struct {
-	Input string `name:"input" help:"JSON/NDJSON contact file instead of macOS Contacts"`
+	Input   string `name:"input" help:"JSON/NDJSON contact file instead of macOS Contacts"`
+	Avatars bool   `name:"avatars" help:"Import local avatar thumbnails"`
 }
 
 func (c *ImportAppleCmd) Run(r *Runtime) error {
@@ -356,7 +434,7 @@ func (c *ImportAppleCmd) Run(r *Runtime) error {
 	if err != nil {
 		return err
 	}
-	changes, err := r.store.ImportContacts("apple", apple.ToSourceContacts(contacts), r.root.DryRun, time.Now())
+	changes, err := r.store.ImportContacts("apple", apple.ToSourceContacts(contacts, c.Avatars), r.root.DryRun, time.Now())
 	if err != nil {
 		return err
 	}
@@ -441,9 +519,10 @@ type ExportCmd struct {
 }
 
 type ExportVCardCmd struct {
-	Person string `name:"person" help:"Person query"`
-	All    bool   `name:"all" help:"Export all people"`
-	Out    string `name:"out" short:"o" required:"" help:"Output .vcf path, or - for stdout"`
+	Person         string `name:"person" help:"Person query"`
+	All            bool   `name:"all" help:"Export all people"`
+	IncludeAvatars bool   `name:"include-avatars" help:"Include avatar PHOTO fields"`
+	Out            string `name:"out" short:"o" required:"" help:"Output .vcf path, or - for stdout"`
 }
 
 func (c *ExportVCardCmd) Run(r *Runtime) error {
@@ -465,14 +544,14 @@ func (c *ExportVCardCmd) Run(r *Runtime) error {
 		return usageErr{errors.New("provide --person or --all")}
 	}
 	if c.Out == "-" {
-		return vcard.Write(r.stdout, people)
+		return vcard.WriteWithOptions(r.stdout, people, vcard.Options{IncludeAvatars: c.IncludeAvatars})
 	}
 	f, err := os.Create(c.Out)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	if err := vcard.Write(f, people); err != nil {
+	if err := vcard.WriteWithOptions(f, people, vcard.Options{IncludeAvatars: c.IncludeAvatars}); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -543,8 +622,16 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 		"people":      len(people),
 		"git_dirty":   dirty,
 	}
+	avatarProblems := 0
+	for _, p := range people {
+		avatarProblems += len(avatar.Validate(p))
+	}
+	if avatarProblems > 0 {
+		result["avatar_problems"] = avatarProblems
+	}
 	if c.Repair {
 		var repaired int
+		var avatarRepaired int
 		for _, p := range people {
 			loaded, report, err := markdown.ReadPerson(p.Path)
 			if err != nil {
@@ -558,8 +645,18 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 					}
 				}
 			}
+			if len(avatar.Validate(loaded)) > 0 {
+				avatarRepaired++
+				if !r.root.DryRun {
+					_, _, err := store.RepairAvatarMetadata(loaded, time.Now())
+					if err != nil {
+						return err
+					}
+				}
+			}
 		}
 		result["repaired"] = repaired
+		result["avatar_repaired"] = avatarRepaired
 		result["dry_run"] = r.root.DryRun
 	}
 	return r.print(result)

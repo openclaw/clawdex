@@ -1,24 +1,35 @@
 package vcard
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/openclaw/clawdex/internal/model"
 )
 
+type Options struct {
+	IncludeAvatars bool
+}
+
 func Write(w io.Writer, people []model.Person) error {
+	return WriteWithOptions(w, people, Options{})
+}
+
+func WriteWithOptions(w io.Writer, people []model.Person, opts Options) error {
 	for _, p := range people {
-		if err := writeOne(w, p); err != nil {
+		if err := writeOne(w, p, opts); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeOne(w io.Writer, p model.Person) error {
+func writeOne(w io.Writer, p model.Person, opts Options) error {
 	lines := []string{
 		"BEGIN:VCARD",
 		"VERSION:4.0",
@@ -41,6 +52,15 @@ func writeOne(w io.Writer, p model.Person) error {
 	if len(p.Tags) > 0 {
 		lines = append(lines, "CATEGORIES:"+escape(strings.Join(p.Tags, ",")))
 	}
+	if opts.IncludeAvatars && strings.TrimSpace(p.Avatar.Path) != "" {
+		photo, err := photoLine(p)
+		if err != nil {
+			return err
+		}
+		if photo != "" {
+			lines = append(lines, photo)
+		}
+	}
 	lines = append(lines, "NOTE:"+escape("clawdex:"+p.ID))
 	lines = append(lines, "END:VCARD")
 	for _, line := range lines {
@@ -49,6 +69,26 @@ func writeOne(w io.Writer, p model.Person) error {
 		}
 	}
 	return nil
+}
+
+func photoLine(p model.Person) (string, error) {
+	if filepath.IsAbs(p.Avatar.Path) {
+		return "", fmt.Errorf("avatar path must be relative: %s", p.Avatar.Path)
+	}
+	clean := filepath.Clean(filepath.FromSlash(p.Avatar.Path))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("avatar path escaped person directory: %s", p.Avatar.Path)
+	}
+	path := filepath.Join(filepath.Dir(p.Path), clean)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	mime := strings.TrimSpace(p.Avatar.MIME)
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	return "PHOTO:data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }
 
 func structuredName(p model.Person) string {
