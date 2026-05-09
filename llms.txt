@@ -1,0 +1,11 @@
+# clawdex
+
+Personal contact index backed by markdown and private Git. Imports Apple, Google, X DMs, and Discord DMs.
+
+Canonical pages:
+- Clawdex — local-first contact index: https://clawdex.sh/
+
+Source: https://github.com/openclaw/clawdex
+
+Guidance for agents:
+- Use this file as a site index, not a full-site corpus.
