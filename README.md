@@ -1,4 +1,6 @@
-# clawdex
+# 🧩 clawdex
+
+Local-first personal contact index CLI.
 
 `clawdex` is a local-first personal contact index CLI. The app lives in this
 repo; your contacts live in a separate private Git-backed markdown repo.
