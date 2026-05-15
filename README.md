@@ -1,8 +1,8 @@
 # 🧩 clawdex
 
-Local-first personal contact index CLI.
+Local-first contact crawler and markdown archive CLI.
 
-`clawdex` is a local-first personal contact index CLI. The app lives in this
+`clawdex` is a local-first contact crawler and markdown archive CLI. The app lives in this
 repo; your contacts live in a separate private Git-backed markdown repo.
 
 The default backup remote is:
