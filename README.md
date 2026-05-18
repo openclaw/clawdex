@@ -5,10 +5,11 @@ Local-first contact crawler and markdown archive CLI.
 `clawdex` is a local-first contact crawler and markdown archive CLI. The app lives in this
 repo; your contacts live in a separate private Git-backed markdown repo.
 
-The default backup remote is:
+Contacts stay local by default. To back up or sync across machines, configure a
+private Git remote you own:
 
 ```bash
-https://github.com/steipete/backup-clawdex.git
+https://github.com/<you>/backup-clawdex.git
 ```
 
 ## Setup
@@ -28,7 +29,13 @@ go install github.com/openclaw/clawdex/cmd/clawdex@latest
 ```bash
 clawdex init ~/.clawdex/contacts
 clawdex config set repo_path ~/.clawdex/contacts
-clawdex config set git.remote https://github.com/steipete/backup-clawdex.git
+clawdex config set git.remote https://github.com/<you>/backup-clawdex.git
+```
+
+Or set the backup remote during initialization:
+
+```bash
+clawdex init ~/.clawdex/contacts --remote https://github.com/<you>/backup-clawdex.git
 ```
 
 `init` creates a data repo:

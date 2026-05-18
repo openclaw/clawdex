@@ -12,7 +12,7 @@ import (
 const (
 	DefaultConfigEnv = "CLAWDEX_CONFIG"
 	RepoEnv          = "CLAWDEX_REPO"
-	DefaultRemote    = "https://github.com/steipete/backup-clawdex.git"
+	DefaultRemote    = ""
 )
 
 type Config struct {

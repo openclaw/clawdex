@@ -4,7 +4,8 @@ Your contacts data repo is just a Git repo. Clawdex doesn't run a sync
 daemon, doesn't talk to a clawdex.sh server, and doesn't store anything
 about you remotely. Backup and multi-device sync are 100% Git.
 
-The default suggested remote is a *private* GitHub repo:
+Contacts stay local by default. For backup and multi-device sync, use a
+*private* GitHub repo:
 
 ```text
 https://github.com/<you>/backup-clawdex.git

@@ -15,14 +15,15 @@ Other paths (Go install, source build, release archives) are documented on
 ## 2. Pick a place for your contacts
 
 The CLI lives in this repo. Your contacts live in **a separate, private
-markdown repo** that you own. The default suggested remote is:
+markdown repo** that you own. Contacts stay local by default. If you want Git
+backup or multi-device sync, use a private remote such as:
 
 ```text
 https://github.com/<you>/backup-clawdex.git
 ```
 
-Create that empty private repo on GitHub first — it's where your data will
-back up to.
+Create that empty private repo on GitHub first if you want backup — it's where
+your data will back up to.
 
 ## 3. Initialize a contacts data repo
 
@@ -30,6 +31,12 @@ back up to.
 clawdex init ~/.clawdex/contacts
 clawdex config set repo_path ~/.clawdex/contacts
 clawdex config set git.remote https://github.com/<you>/backup-clawdex.git
+```
+
+You can also set the backup remote during initialization:
+
+```bash
+clawdex init ~/.clawdex/contacts --remote https://github.com/<you>/backup-clawdex.git
 ```
 
 `init` writes:
