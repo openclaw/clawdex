@@ -49,6 +49,10 @@ clawdex config set git.branch main
 clawdex config set google.default_account you@gmail.com
 ```
 
+`clawdex init DIR --remote URL` also writes `git.remote` during initial
+setup. Without `--remote`, contacts stay local-only until a remote is
+configured.
+
 `clawdex config set` writes the user-level config file. `--dry-run`
 echoes the resolved config without writing.
 
