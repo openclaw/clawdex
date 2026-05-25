@@ -257,6 +257,16 @@ func TestExecuteGitStatusAndDryRun(t *testing.T) {
 	if !strings.Contains(out.String(), "No commits yet") {
 		t.Fatalf("git status = %s", out.String())
 	}
+	for _, args := range [][]string{
+		{"--config", cfg, "git", "push"},
+		{"--config", cfg, "git", "pull"},
+	} {
+		out.Reset()
+		errOut.Reset()
+		if err := Execute(args, &out, &errOut); err == nil || !strings.Contains(err.Error(), "git remote is not configured") {
+			t.Fatalf("%v: err=%v stdout=%s stderr=%s", args, err, out.String(), errOut.String())
+		}
+	}
 }
 
 func TestExecuteImportDiscrawlErrors(t *testing.T) {
@@ -424,6 +434,40 @@ func TestExecuteGitPushPullWithLocalRemote(t *testing.T) {
 		{"--config", cfg, "init", data, "--remote", remote},
 		{"--config", cfg, "person", "add", "Ada Remote"},
 		{"--config", cfg, "git", "commit", "-m", "test: remote"},
+		{"--config", cfg, "git", "push"},
+		{"--config", cfg, "git", "pull"},
+	} {
+		out.Reset()
+		errOut.Reset()
+		if err := Execute(args, &out, &errOut); err != nil {
+			t.Fatalf("%v: %v stderr=%s stdout=%s", args, err, errOut.String(), out.String())
+		}
+	}
+}
+
+func TestExecuteGitPushPullWithExistingOrigin(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.toml")
+	data := filepath.Join(dir, "contacts")
+	remote := filepath.Join(dir, "remote.git")
+	if err := os.Mkdir(remote, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runShell(t, remote, "git", "init", "--bare")
+	var out, errOut bytes.Buffer
+	for _, args := range [][]string{
+		{"--config", cfg, "init", data, "--remote", ""},
+		{"--config", cfg, "person", "add", "Ada Origin"},
+		{"--config", cfg, "git", "commit", "-m", "test: origin"},
+	} {
+		out.Reset()
+		errOut.Reset()
+		if err := Execute(args, &out, &errOut); err != nil {
+			t.Fatalf("%v: %v stderr=%s stdout=%s", args, err, errOut.String(), out.String())
+		}
+	}
+	runShell(t, data, "git", "remote", "add", "origin", remote)
+	for _, args := range [][]string{
 		{"--config", cfg, "git", "push"},
 		{"--config", cfg, "git", "pull"},
 	} {

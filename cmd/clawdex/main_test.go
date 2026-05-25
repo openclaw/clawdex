@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -12,7 +12,12 @@ func TestRun(t *testing.T) {
 	var out, errOut bytes.Buffer
 	cfg := filepath.Join(t.TempDir(), "config.toml")
 	code := run([]string{"--config", cfg, "config"}, &out, &errOut)
-	if code != 0 || strings.Contains(out.String(), "steipete") {
+	var payload struct {
+		Git struct {
+			Remote string `json:"remote"`
+		} `json:"git"`
+	}
+	if code != 0 || json.Unmarshal(out.Bytes(), &payload) != nil || payload.Git.Remote != "" {
 		t.Fatalf("code=%d out=%s err=%s", code, out.String(), errOut.String())
 	}
 	code = run([]string{"--bogus"}, &out, &errOut)
