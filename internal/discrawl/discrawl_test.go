@@ -9,7 +9,9 @@ import (
 
 func TestListDMContactsViaSQLiteAdapter(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "sqlite3")
+	argLog := filepath.Join(t.TempDir(), "args")
 	script := `#!/bin/sh
+printf '%s\n' "$@" > "$ARG_LOG"
 case "$*" in
   *'count(m.id) > 4'*) ;;
   *) echo "missing threshold" >&2; exit 2 ;;
@@ -21,12 +23,20 @@ JSON
 	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("ARG_LOG", argLog)
 	contacts, err := (Adapter{DBPath: "~/discrawl.db", Binary: bin}).ListDMContacts(t.Context(), 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(contacts) != 1 || contacts[0].Name != "Ada DM" || contacts[0].Accounts["discord"][1] != "user:u1" {
 		t.Fatalf("contacts = %#v", contacts)
+	}
+	args, err := os.ReadFile(argLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "?mode=ro") || strings.Contains(string(args), "immutable=1") {
+		t.Fatalf("sqlite args = %q", args)
 	}
 }
 

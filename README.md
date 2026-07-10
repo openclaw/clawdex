@@ -16,7 +16,7 @@ https://github.com/<you>/backup-clawdex.git
 
 ## Setup
 
-Install from Homebrew after the first tagged release:
+Install from Homebrew:
 
 ```bash
 brew install steipete/tap/clawdex
@@ -82,8 +82,11 @@ clawdex import birdclaw --min-messages 4 --dry-run
 clawdex import discrawl --min-messages 4 --dry-run
 ```
 
-Apple direct import uses macOS `Contacts.framework`. Linux builds still support
-markdown, notes, search, Git, Google via `gog`, and vCard export.
+Apple direct import uses macOS `Contacts.framework` through a temporary Swift
+helper. macOS grants Contacts access to that helper/toolchain identity, not to a
+stable `clawdex` identity, so permission continuity is not guaranteed. Use
+`--input` for deterministic imports. Linux builds still support markdown,
+notes, search, Git, Google via `gog`, and vCard export.
 
 Avatar imports are opt-in with `--avatars`. Apple reads thumbnails from
 Contacts.framework. Google uses `gog contacts raw --person-fields photos`,
@@ -145,8 +148,19 @@ The `index/*.json` files are derived and rebuildable. Markdown is canonical.
 
 ## Releases
 
-Tagged releases are built by GoReleaser for macOS, Linux, and Windows. The
-release workflow also dispatches `steipete/homebrew-tap` to update
-`Formula/clawdex.rb` after the GitHub release assets are published.
+Release archives are built from a credential-free, read-only driver disk image
+materialized and mounted from the exact current protected-branch commit, then
+from a fresh, authenticated signed-tag checkout. Official Darwin binaries are
+Foundation-signed with the permanent identifier
+`org.openclaw.clawdex`, hardened runtime, secure timestamp, and Apple
+notarization. A protected-default-branch workflow verifies the exact uploaded
+inventory, trusted signed tag object and commit, reproducible non-Darwin payloads, checksums,
+provenance, Darwin build metadata bound to that commit and Go 1.26.5,
+signatures, exact embedded designated requirements, and online notarization
+constraints before publication. After separate VM and approval gates, the
+protected workflow publishes and re-downloads the exact sealed asset snapshot.
+Naturally quarantined execution on clean Intel and Apple Silicon VMs is a
+separate Gatekeeper gate.
+Homebrew updates are a separate post-release step.
 
 Release checklist: [`docs/RELEASING.md`](docs/RELEASING.md).

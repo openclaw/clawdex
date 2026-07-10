@@ -163,6 +163,22 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Cross-build all release targets without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos=${target%/*}
+            goarch=${target#*/}
+            suffix=
+            [[ "$goos" == windows ]] && suffix=.exe
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -o "/tmp/clawdex-${goos}-${goarch}${suffix}" ./cmd/clawdex
+          done
+
+      - name: Test signed release tooling with isolated mocks
+        run: bash scripts/test-clawdex-release.sh
+
       - name: Snapshot release build
         uses: goreleaser/goreleaser-action@v7.2.1
         with:

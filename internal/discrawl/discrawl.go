@@ -41,7 +41,7 @@ func (a Adapter) ListDMContacts(ctx context.Context, minMessages int) ([]model.S
 	}
 	query := fmt.Sprintf(dmQuery, minMessages)
 	// #nosec G204 -- sqlite3 is a configured binary and all arguments are passed without a shell.
-	cmd := exec.CommandContext(ctx, binary, "-json", "file:"+dbPath+"?mode=ro&immutable=1", query)
+	cmd := exec.CommandContext(ctx, binary, "-json", "file:"+dbPath+"?mode=ro", query)
 	raw, err := cmd.Output()
 	if err != nil {
 		return nil, sqliteErr(err)

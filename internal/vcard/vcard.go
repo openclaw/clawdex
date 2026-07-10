@@ -2,6 +2,7 @@ package vcard
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,10 +11,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/openclaw/clawdex/internal/model"
+	"github.com/openclaw/clawdex/internal/safefile"
 )
 
 type Options struct {
 	IncludeAvatars bool
+	RepoRoot       string
 }
 
 func Write(w io.Writer, people []model.Person) error {
@@ -27,6 +30,47 @@ func WriteWithOptions(w io.Writer, people []model.Person, opts Options) error {
 		}
 	}
 	return nil
+}
+
+func WriteFile(path string, people []model.Person, opts Options) error {
+	root, relative, err := validatedOutput(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	return safefile.AtomicWriteRoot(root, relative, 0o600, func(w io.Writer) error {
+		return WriteWithOptions(w, people, opts)
+	})
+}
+
+// ValidateOutputPath applies WriteFile's destination checks without writing.
+func ValidateOutputPath(path string) error {
+	root, _, err := validatedOutput(path)
+	if err != nil {
+		return err
+	}
+	return root.Close()
+}
+
+func validatedOutput(path string) (*os.Root, string, error) {
+	if path == "" || os.IsPathSeparator(path[len(path)-1]) {
+		return nil, "", fmt.Errorf("vCard output path must name a file: %s", path)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, "", err
+	}
+	parent := filepath.Dir(abs)
+	root, err := os.OpenRoot(parent)
+	if err != nil {
+		return nil, "", err
+	}
+	relative := filepath.Base(abs)
+	if err := safefile.ValidateWriteRoot(root, relative); err != nil {
+		_ = root.Close()
+		return nil, "", err
+	}
+	return root, relative, nil
 }
 
 func writeOne(w io.Writer, p model.Person, opts Options) error {
@@ -53,7 +97,7 @@ func writeOne(w io.Writer, p model.Person, opts Options) error {
 		lines = append(lines, "CATEGORIES:"+escape(strings.Join(p.Tags, ",")))
 	}
 	if opts.IncludeAvatars && strings.TrimSpace(p.Avatar.Path) != "" {
-		photo, err := photoLine(p)
+		photo, err := photoLine(p, opts.RepoRoot)
 		if err != nil {
 			return err
 		}
@@ -71,7 +115,10 @@ func writeOne(w io.Writer, p model.Person, opts Options) error {
 	return nil
 }
 
-func photoLine(p model.Person) (string, error) {
+func photoLine(p model.Person, root string) (string, error) {
+	if strings.TrimSpace(root) == "" {
+		return "", errors.New("contacts repo root is required when exporting avatars")
+	}
 	if filepath.IsAbs(p.Avatar.Path) {
 		return "", fmt.Errorf("avatar path must be relative: %s", p.Avatar.Path)
 	}
@@ -79,8 +126,11 @@ func photoLine(p model.Person) (string, error) {
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("avatar path escaped person directory: %s", p.Avatar.Path)
 	}
-	path := filepath.Join(filepath.Dir(p.Path), clean)
-	data, err := os.ReadFile(path)
+	path, err := safefile.Relative(root, filepath.Join(filepath.Dir(p.Path), clean))
+	if err != nil {
+		return "", err
+	}
+	data, err := safefile.ReadFile(root, path)
 	if err != nil {
 		return "", err
 	}

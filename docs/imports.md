@@ -38,10 +38,13 @@ clawdex import apple --avatars
 clawdex import apple --input ~/Desktop/contacts.json
 ```
 
-- Default source is the macOS Contacts database via `Contacts.framework`.
-  The first run prompts for *Contacts* access in System Settings.
+- Default source is the macOS Contacts database via `Contacts.framework`,
+  currently executed by a temporary unsigned Swift helper. macOS associates
+  Contacts permission with that helper/toolchain identity rather than a stable
+  `clawdex` identity, so permission prompts and continuity are not guaranteed.
 - `--input PATH` reads JSON or NDJSON instead — useful on Linux, in CI,
-  or when round-tripping a snapshot.
+  when round-tripping a snapshot, or when deterministic permission behavior is
+  required.
 - `--avatars` imports thumbnail bytes. Without it, only structured fields
   are imported.
 
@@ -103,7 +106,9 @@ clawdex import discrawl --db ~/.discrawl/discrawl.db
 
 Same shape as birdclaw, but reads from
 [discrawl](https://github.com/steipete/discrawl)'s SQLite cache. Discord
-handles land under `accounts.discord`.
+handles land under `accounts.discord`. The database is opened read-only without
+SQLite's immutable hint so committed WAL records remain visible during a live
+Discrawl session.
 
 ## Crawler Contacts
 

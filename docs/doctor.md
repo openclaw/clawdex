@@ -71,8 +71,8 @@ synced to whatever's actually on disk. Use
 clawdex doctor --repair --dry-run
 ```
 
-Walks the repo and reports counts without writing anything. The output
-includes:
+Walks the repo and reports counts without writing anything. It also disables
+automatic frontmatter repair for the run. The output includes:
 
 ```text
 repaired: 4

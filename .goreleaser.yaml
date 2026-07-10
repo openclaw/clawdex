@@ -14,8 +14,7 @@ builds:
     ldflags:
       - -s -w -X github.com/openclaw/clawdex/internal/cli.Version={{ .Version }}
     targets:
-      - darwin_amd64
-      - darwin_arm64
+      # Official Darwin assets come only from the local signed/notarized path.
       - linux_amd64
       - linux_arm64
       - windows_amd64

@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/openclaw/clawdex/internal/markdown"
 	"github.com/openclaw/clawdex/internal/model"
@@ -126,6 +128,44 @@ func TestAvatarSetAndImportBackfill(t *testing.T) {
 	}
 	if !changed || p.Avatar.Path != "" {
 		t.Fatalf("missing avatar was not cleared: changed=%v avatar=%#v", changed, p.Avatar)
+	}
+}
+
+func TestAvatarImportDryRunRejectsUnsafeDestinationWithoutWriting(t *testing.T) {
+	r := testRepo(t)
+	s := New(r)
+	p, err := s.AddPerson("Dry Avatar", []string{"dry-avatar@example.com"}, nil, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(t.TempDir(), "avatar.png")
+	writeTestPNG(t, src)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(filepath.Dir(p.Path), "avatars")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	before, err := os.ReadFile(p.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.ImportContacts("apple", []model.SourceContact{{
+		Name:   "Dry Avatar",
+		Emails: []model.ContactValue{{Value: "dry-avatar@example.com"}},
+		Avatar: &model.SourceAvatar{Data: data},
+	}}, true, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("dry-run import error = %v", err)
+	}
+	after, err := os.ReadFile(p.Path)
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("person changed: err=%v\nbefore=%q\nafter=%q", err, before, after)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "avatar.png")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote outside: %v", err)
 	}
 }
 
@@ -577,6 +617,10 @@ func TestSmallHelpers(t *testing.T) {
 	if got := snippet("short body", "missing"); got != "" {
 		t.Fatalf("snippet = %q", got)
 	}
+	unicodeBody := strings.Repeat("Ⱥ", 100) + " needle"
+	if got := snippet(unicodeBody, "needle"); !strings.Contains(got, "needle") || !utf8.ValidString(got) {
+		t.Fatalf("unicode snippet = %q", got)
+	}
 }
 
 func TestPeopleAutoRepairRebuildAccountsAndImportNoop(t *testing.T) {
@@ -659,6 +703,19 @@ func TestPeopleAndNotesForgivingBranches(t *testing.T) {
 	}
 	if err := s.Rebuild(); err == nil {
 		t.Fatal("expected index dir mkdir error")
+	}
+}
+
+func TestAddPersonReturnsUnexpectedDirectoryLookupError(t *testing.T) {
+	r := testRepo(t)
+	if err := os.RemoveAll(r.PeopleDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(r.PeopleDir(), []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(r).AddPerson("Ada", nil, nil, nil, time.Now()); err == nil {
+		t.Fatal("expected people directory lookup error")
 	}
 }
 

@@ -34,11 +34,25 @@ func (r Repo) requireRemote(ctx context.Context) error {
 		return nil
 	}
 	// #nosec G204 -- git is fixed and repo path is passed as a plain argument.
-	cmd := exec.CommandContext(ctx, "git", "-C", r.Path, "remote", "get-url", "origin")
+	cmd := exec.CommandContext(ctx, "git", "--no-optional-locks", "-C", r.Path, "remote", "get-url", "origin")
 	if err := cmd.Run(); err == nil {
 		return nil
 	}
 	return ErrRemoteNotConfigured
+}
+
+func (r Repo) ValidateRemote(ctx context.Context) error {
+	return r.requireRemote(ctx)
+}
+
+func (r Repo) DirtyReadOnly(ctx context.Context) (bool, error) {
+	// #nosec G204 -- git is fixed and repo path is passed as a plain argument.
+	cmd := exec.CommandContext(ctx, "git", "-c", "core.fsmonitor=false", "--no-optional-locks", "-C", r.Path, "status", "--porcelain")
+	out, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return len(strings.TrimSpace(string(out))) > 0, nil
 }
 
 func (r Repo) Commit(ctx context.Context, message string) (bool, error) {

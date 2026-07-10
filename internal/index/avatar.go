@@ -13,7 +13,7 @@ func (s Store) SetAvatar(personQuery, imagePath string, now time.Time) (model.Pe
 	if err != nil {
 		return model.Person{}, err
 	}
-	p, err = avatar.SetManual(p, imagePath, now)
+	p, err = avatar.SetManual(s.Repo.Path, p, imagePath, now)
 	if err != nil {
 		return model.Person{}, err
 	}
@@ -38,7 +38,7 @@ func (s Store) ClearAvatar(personQuery string, now time.Time) (model.Person, err
 }
 
 func (s Store) RepairAvatarMetadata(person model.Person, now time.Time) (model.Person, bool, error) {
-	p, changed, err := avatar.RepairMetadata(person, now)
+	p, changed, err := avatar.RepairMetadata(s.Repo.Path, person, now)
 	if err != nil {
 		p = avatar.Clear(person)
 		p.UpdatedAt = now.UTC()

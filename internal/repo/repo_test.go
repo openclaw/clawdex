@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,12 +99,23 @@ func TestRepoInitRequireAndGit(t *testing.T) {
 	if !dirty {
 		t.Fatal("expected dirty repo after init")
 	}
+	readOnlyDirty, err := r.DirtyReadOnly(t.Context())
+	if err != nil || !readOnlyDirty {
+		t.Fatalf("read-only dirty=%v err=%v", readOnlyDirty, err)
+	}
+	if err := r.ValidateRemote(t.Context()); !errors.Is(err, ErrRemoteNotConfigured) {
+		t.Fatalf("validate remote err = %v", err)
+	}
 	committed, err := r.Commit(t.Context(), "test: init")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !committed {
 		t.Fatal("expected commit")
+	}
+	readOnlyDirty, err = r.DirtyReadOnly(t.Context())
+	if err != nil || readOnlyDirty {
+		t.Fatalf("clean read-only dirty=%v err=%v", readOnlyDirty, err)
 	}
 }
 
@@ -148,6 +160,9 @@ func TestRepoInitGuardsAndRemoteLocal(t *testing.T) {
 	if err := r.Init(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	if err := r.ValidateRemote(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(cfg.RepoPath, "people", "x"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +174,9 @@ func TestRepoInitGuardsAndRemoteLocal(t *testing.T) {
 	}
 	if err := r.Pull(t.Context()); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := Open(filepath.Join(dir, "missing"), cfg).DirtyReadOnly(t.Context()); err == nil {
+		t.Fatal("expected missing repo status error")
 	}
 }
 

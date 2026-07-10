@@ -270,8 +270,12 @@ func (s Store) uniquePersonDir(slug string) (string, error) {
 			candidate = fmt.Sprintf("%s-%d", slug, i+1)
 		}
 		path := filepath.Join(s.Repo.PeopleDir(), candidate)
-		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		_, err := os.Stat(path)
+		if errors.Is(err, os.ErrNotExist) {
 			return path, nil
+		}
+		if err != nil {
+			return "", err
 		}
 	}
 }
@@ -333,13 +337,17 @@ func scoreText(text, query string) int {
 
 func snippet(body, query string) string {
 	lower := strings.ToLower(body)
-	idx := strings.Index(lower, query)
-	if idx < 0 {
+	query = strings.ToLower(query)
+	before, _, found := strings.Cut(lower, query)
+	if !found {
 		return ""
 	}
-	start := idx - 40
+	matchRune := len([]rune(before))
+	queryRunes := len([]rune(query))
+	bodyRunes := []rune(body)
+	start := matchRune - 40
 	start = max(start, 0)
-	end := idx + len(query) + 80
-	end = min(end, len(body))
-	return strings.TrimSpace(body[start:end])
+	end := matchRune + queryRunes + 80
+	end = min(end, len(bodyRunes))
+	return strings.TrimSpace(string(bodyRunes[start:end]))
 }

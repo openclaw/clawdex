@@ -18,6 +18,15 @@ Without `--include-avatars`, the file is text-only and small. With it, each
 person's avatar is embedded as a base64 `PHOTO;ENCODING=b` payload. A few
 hundred avatars adds up — expect a few megabytes.
 
+Clawdex resolves avatar files within the contacts repo, rejects symlink
+components, and opens only regular files; FIFOs and devices are rejected
+without blocking. File output uses a private `0600` temporary file in the
+destination directory and an atomic rename; an existing symlink at the output
+path is rejected. An explicitly selected symlinked directory such as macOS
+`/tmp` is opened as the destination root; the open directory remains anchored
+if that symlink is later retargeted. With `--dry-run`, Clawdex validates the
+export but does not create or replace the output file.
+
 ## Export one person
 
 ```bash

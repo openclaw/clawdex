@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
@@ -74,7 +75,7 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 		kong.Description("Personal contact index backed by markdown and private Git."),
 		kong.UsageOnError(),
 		kong.Writers(stdout, stderr),
-		kong.Vars{"version": Version},
+		kong.Vars{"version": effectiveVersion()},
 	)
 	if err != nil {
 		return err
@@ -88,6 +89,10 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
+	dataCfg := cfg
+	if root.DryRun {
+		dataCfg.Repair.AutoRepair = false
+	}
 	repoPath, err := repo.ResolveRepoPath(root.Repo, cfg)
 	if err != nil {
 		repoPath = cfg.RepoPath
@@ -99,7 +104,7 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 		root:       &root,
 		configPath: configPath,
 		cfg:        cfg,
-		repo:       repo.Open(repoPath, cfg),
+		repo:       repo.Open(repoPath, dataCfg),
 	}
 	r.store = index.New(r.repo)
 	kctx.Bind(r)
@@ -138,6 +143,9 @@ func (c *InitCmd) Run(r *Runtime) error {
 	}
 	cfg.Normalize()
 	dataRepo := repo.Open(cfg.RepoPath, cfg)
+	if r.root.DryRun {
+		return r.print(map[string]any{"config_path": r.configPath, "dry_run": true, "remote": cfg.Git.Remote, "would_initialize": cfg.RepoPath})
+	}
 	if err := dataRepo.Init(r.ctx); err != nil {
 		return err
 	}
@@ -179,6 +187,7 @@ func (c *ConfigSetCmd) Run(r *Runtime) error {
 	default:
 		return usageErr{fmt.Errorf("unsupported config key %q", c.Key)}
 	}
+	cfg.Normalize()
 	if r.root.DryRun {
 		return r.print(cfg)
 	}
@@ -260,6 +269,9 @@ func (c *PersonEditCmd) Run(r *Runtime) error {
 	if err != nil {
 		return err
 	}
+	if r.root.DryRun {
+		return r.print(map[string]any{"dry_run": true, "would_edit": p.Path})
+	}
 	editor := strings.TrimSpace(os.Getenv("EDITOR"))
 	if editor == "" {
 		editor = "code"
@@ -289,12 +301,10 @@ func (c *PersonAvatarSetCmd) Run(r *Runtime) error {
 		return err
 	}
 	if r.root.DryRun {
-		ref, err := avatar.InspectFile(c.File)
+		ref, err := avatar.ValidateManual(r.repo.Path, p, c.File)
 		if err != nil {
 			return err
 		}
-		ref.Path = "avatars/avatar"
-		ref.Source = "manual"
 		return r.print(map[string]any{"would_set_avatar": p.ID, "mime": ref.MIME, "sha256": ref.SHA256})
 	}
 	p, err = r.store.SetAvatar(c.Person, c.File, time.Now())
@@ -318,7 +328,7 @@ func (c *PersonAvatarShowCmd) Run(r *Runtime) error {
 		return fmt.Errorf("%s has no avatar", p.Name)
 	}
 	if c.Path {
-		path, err := avatar.AbsolutePath(p)
+		path, err := avatar.AbsolutePath(r.repo.Path, p)
 		if err != nil {
 			return err
 		}
@@ -371,6 +381,11 @@ func (c *NoteAddCmd) Run(r *Runtime) error {
 	}
 	n := markdown.NewNote("", c.Kind, c.Source, c.Text, occurredAt, time.Now(), c.Topic)
 	if r.root.DryRun {
+		p, err := r.store.FindPerson(c.Person)
+		if err != nil {
+			return err
+		}
+		n.PersonID = p.ID
 		return r.print(n)
 	}
 	n, err = r.store.AddNote(c.Person, n)
@@ -661,18 +676,20 @@ func (c *ExportVCardCmd) Run(r *Runtime) error {
 	default:
 		return usageErr{errors.New("provide --person or --all")}
 	}
+	opts := vcard.Options{IncludeAvatars: c.IncludeAvatars, RepoRoot: r.repo.Path}
 	if c.Out == "-" {
-		return vcard.WriteWithOptions(r.stdout, people, vcard.Options{IncludeAvatars: c.IncludeAvatars})
+		return vcard.WriteWithOptions(r.stdout, people, opts)
 	}
-	f, err := os.Create(c.Out)
-	if err != nil {
-		return err
+	if r.root.DryRun {
+		if err := vcard.ValidateOutputPath(c.Out); err != nil {
+			return err
+		}
+		if err := vcard.WriteWithOptions(io.Discard, people, opts); err != nil {
+			return err
+		}
+		return r.print(map[string]any{"dry_run": true, "out": c.Out, "would_export": len(people)})
 	}
-	defer func() { _ = f.Close() }()
-	if err := vcard.WriteWithOptions(f, people, vcard.Options{IncludeAvatars: c.IncludeAvatars}); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
+	if err := vcard.WriteFile(c.Out, people, opts); err != nil {
 		return err
 	}
 	return r.print(map[string]any{"exported": len(people), "out": c.Out})
@@ -688,8 +705,11 @@ type GitCmd struct {
 type GitStatusCmd struct{}
 
 func (c *GitStatusCmd) Run(r *Runtime) error {
-	// #nosec G204 -- git is fixed and repo path is passed as a plain argument.
-	cmd := exec.CommandContext(r.ctx, "git", "-C", r.repo.Path, "status", "--short", "--branch")
+	args := []string{"-C", r.repo.Path, "status", "--short", "--branch"}
+	if r.root.DryRun {
+		args = append([]string{"-c", "core.fsmonitor=false", "--no-optional-locks"}, args...)
+	}
+	cmd := exec.CommandContext(r.ctx, "git", args...) // #nosec G204 -- git is fixed and repo path is passed as a plain argument.
 	cmd.Stdout = r.stdout
 	cmd.Stderr = r.stderr
 	return cmd.Run()
@@ -698,12 +718,24 @@ func (c *GitStatusCmd) Run(r *Runtime) error {
 type GitPullCmd struct{}
 
 func (c *GitPullCmd) Run(r *Runtime) error {
+	if r.root.DryRun {
+		if err := r.repo.ValidateRemote(r.ctx); err != nil {
+			return err
+		}
+		return r.print(map[string]any{"branch": r.repo.Config.Git.Branch, "dry_run": true, "would_pull": true})
+	}
 	return r.repo.Pull(r.ctx)
 }
 
 type GitPushCmd struct{}
 
 func (c *GitPushCmd) Run(r *Runtime) error {
+	if r.root.DryRun {
+		if err := r.repo.ValidateRemote(r.ctx); err != nil {
+			return err
+		}
+		return r.print(map[string]any{"branch": r.repo.Config.Git.Branch, "dry_run": true, "would_push": true})
+	}
 	return r.repo.Push(r.ctx)
 }
 
@@ -712,6 +744,13 @@ type GitCommitCmd struct {
 }
 
 func (c *GitCommitCmd) Run(r *Runtime) error {
+	if r.root.DryRun {
+		dirty, err := r.repo.DirtyReadOnly(r.ctx)
+		if err != nil {
+			return err
+		}
+		return r.print(map[string]any{"dry_run": true, "message": c.Message, "would_commit": dirty})
+	}
 	committed, err := r.repo.Commit(r.ctx, c.Message)
 	if err != nil {
 		return err
@@ -732,7 +771,7 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 	if err != nil {
 		return err
 	}
-	dirty, _ := r.repo.Dirty(r.ctx)
+	dirty, _ := r.repo.DirtyReadOnly(r.ctx)
 	result := map[string]any{
 		"config_path": r.configPath,
 		"repo_path":   r.repo.Path,
@@ -742,7 +781,7 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 	}
 	avatarProblems := 0
 	for _, p := range people {
-		avatarProblems += len(avatar.Validate(p))
+		avatarProblems += len(avatar.Validate(r.repo.Path, p))
 	}
 	if avatarProblems > 0 {
 		result["avatar_problems"] = avatarProblems
@@ -763,7 +802,7 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 					}
 				}
 			}
-			if len(avatar.Validate(loaded)) > 0 {
+			if len(avatar.Validate(r.repo.Path, loaded)) > 0 {
 				avatarRepaired++
 				if !r.root.DryRun {
 					_, _, err := store.RepairAvatarMetadata(loaded, time.Now())
@@ -916,4 +955,26 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func effectiveVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	return resolveVersion(Version, info, ok)
+}
+
+func resolveVersion(linked string, info *debug.BuildInfo, ok bool) string {
+	linked = strings.TrimSpace(linked)
+	if linked != "" && linked != "dev" && linked != "(devel)" {
+		return strings.TrimPrefix(linked, "v")
+	}
+	if ok && info != nil {
+		version := strings.TrimSpace(info.Main.Version)
+		if version != "" && version != "(devel)" {
+			return strings.TrimPrefix(version, "v")
+		}
+	}
+	if linked == "" || linked == "(devel)" {
+		return "dev"
+	}
+	return linked
 }

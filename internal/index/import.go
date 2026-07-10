@@ -55,7 +55,7 @@ func (s Store) importContacts(source string, contacts []model.SourceContact, opt
 					return nil, err
 				}
 				if contact.Avatar != nil {
-					withAvatar, _, err := avatar.SetImported(created, *contact.Avatar, source, now)
+					withAvatar, _, err := avatar.SetImported(s.Repo.Path, created, *contact.Avatar, source, now)
 					if err != nil {
 						return nil, err
 					}
@@ -71,6 +71,16 @@ func (s Store) importContacts(source string, contacts []model.SourceContact, opt
 				change.Path = created.Path
 				people = append(people, created)
 			} else {
+				dir, err := s.uniquePersonDir(model.Slug(p.Name))
+				if err != nil {
+					return nil, err
+				}
+				p.Path = filepath.Join(dir, "person.md")
+				if contact.Avatar != nil {
+					if _, err := avatar.ValidateImported(s.Repo.Path, p, *contact.Avatar, source); err != nil {
+						return nil, err
+					}
+				}
 				people = append(people, p)
 			}
 			changes = append(changes, change)
@@ -84,7 +94,6 @@ func (s Store) importContacts(source string, contacts []model.SourceContact, opt
 		beforeSources := cloneSources(p.Sources)
 		beforeApple := p.Apple
 		beforeGoogle := p.Google
-		beforeAvatar := p.Avatar
 		matchedContact := contact
 		if opts.TrackSources {
 			matchedContact = contactForPerson(people, idx, contact)
@@ -97,10 +106,13 @@ func (s Store) importContacts(source string, contacts []model.SourceContact, opt
 			p.Sources = mergePersonSources(p.Sources, source, matchedContact)
 		}
 		setExternal(&p, source, contact, now)
-		avatarChanged := avatarWouldChange(beforeAvatar, contact.Avatar, source)
-		if !opts.DryRun && contact.Avatar != nil {
-			var err error
-			p, avatarChanged, err = avatar.SetImported(p, *contact.Avatar, source, now)
+		avatarChanged := false
+		if contact.Avatar != nil {
+			if opts.DryRun {
+				avatarChanged, err = avatar.ValidateImported(s.Repo.Path, p, *contact.Avatar, source)
+			} else {
+				p, avatarChanged, err = avatar.SetImported(s.Repo.Path, p, *contact.Avatar, source, now)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -153,24 +165,6 @@ func valueOwnedByOtherPerson(people []model.Person, idx int, key string, has fun
 		}
 	}
 	return false
-}
-
-func avatarWouldChange(current model.AvatarRef, incoming *model.SourceAvatar, source string) bool {
-	if incoming == nil || len(incoming.Data) == 0 {
-		return false
-	}
-	sha := incoming.SHA256
-	if sha == "" {
-		inspected, err := avatar.InspectBytes(incoming.Data)
-		if err != nil {
-			return false
-		}
-		sha = inspected.SHA256
-	}
-	if current.SHA256 == sha {
-		return false
-	}
-	return current.Path == "" || current.Source == "" || current.Source == source
 }
 
 func matchContact(people []model.Person, contact model.SourceContact, matchNames bool) int {

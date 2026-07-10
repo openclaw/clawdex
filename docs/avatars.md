@@ -18,6 +18,11 @@ The `person.md` frontmatter records the avatar's MIME type, sha256, source
 (`manual`, `apple`, `google`), and updated time. The bytes are kept on disk;
 the markdown only points at them.
 
+Avatar paths are confined to the contacts repo. Clawdex rejects symlinks in
+the avatar leaf or any parent component, requires reads to resolve to an open
+regular file rather than a FIFO or device, then replaces avatar files
+atomically with private `0600` permissions.
+
 ## Set a manual avatar
 
 ```bash
@@ -25,8 +30,15 @@ clawdex person avatar set sally ~/Pictures/sally.jpg
 clawdex person avatar set sally ~/Pictures/sally.png --dry-run
 ```
 
-`--dry-run` inspects the source image (MIME, SHA256) and previews the
-avatar metadata that would be written, without touching the data repo.
+`--dry-run` inspects the source image (MIME, SHA256), validates the same rooted
+destination and overwrite policy as the real write, and previews the avatar
+metadata without touching the data repo. Avatar-enabled imports perform the
+same non-writing destination validation.
+
+Manual source files must be regular files reached without a symlink leaf or a
+symlink beneath the current directory, home directory, or temporary directory.
+This prevents an apparently local avatar from copying unrelated file contents
+into the contacts repo.
 
 Manual avatars are sticky: subsequent `clawdex import apple` and
 `clawdex import google` runs will **never overwrite a manual avatar**. To

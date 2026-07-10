@@ -1,0 +1,220 @@
+name: Release Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to verify"
+        required: true
+        type: string
+      draft:
+        description: "Verify an unpublished draft release"
+        required: true
+        default: true
+        type: boolean
+      publish:
+        description: "Publish the exact verified draft after the protected approval gate"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: clawdex-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  # GitHub hides draft releases from read-only workflow tokens.
+  contents: read
+
+jobs:
+  validate-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require protected default-branch dispatch
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_REF: ${{ github.ref }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          EVENT_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          DRAFT: ${{ inputs.draft }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          [[ "$WORKFLOW_REF" == *"@refs/heads/$DEFAULT_BRANCH" ]]
+          [[ "$EVENT_REF" == "refs/heads/$DEFAULT_BRANCH" ]]
+          [[ "$WORKFLOW_SHA" == "$EVENT_SHA" ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ "$PUBLISH" == true && "$DRAFT" != true ]]; then
+            echo "publish requires verification of the unpublished draft" >&2
+            exit 1
+          fi
+
+  verify-inventory:
+    needs: validate-context
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      commit: ${{ steps.verify.outputs.commit }}
+      tag-object: ${{ steps.verify.outputs.tag-object }}
+      release-id: ${{ steps.download.outputs.release-id }}
+      snapshot-id: ${{ steps.snapshot.outputs.artifact-id }}
+      snapshot-digest: ${{ steps.snapshot.outputs.artifact-digest }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Checkout trusted verifier
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Checkout signed source tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup exact Go toolchain
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: 1.26.5
+          cache: false
+
+      - name: Download exact release inventory
+        id: download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          trusted/scripts/download-clawdex-release-assets.sh \
+            "$RELEASE_TAG" "${{ inputs.draft }}" artifacts
+
+      - name: Reproduce non-Darwin payloads without token
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN
+          expected_commit=$(git -C source rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          expected_tag_object=$(git -C source rev-parse "refs/tags/$RELEASE_TAG^{tag}")
+          [[ "$expected_commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$expected_tag_object" =~ ^[0-9a-f]{40}$ ]]
+          verifier_home=$(mktemp -d "$RUNNER_TEMP/clawdex-verifier-home.XXXXXX")
+          env -i PATH="$PATH" HOME="$verifier_home" TMPDIR="$RUNNER_TEMP" \
+            EXPECTED_COMMIT="$expected_commit" \
+            EXPECTED_TAG_OBJECT="$expected_tag_object" \
+            EXPECTED_DRIVER_COMMIT="$GITHUB_WORKFLOW_SHA" \
+            bash trusted/scripts/verify-clawdex-release.sh \
+              "$RELEASE_TAG" artifacts --non-darwin "$GITHUB_WORKSPACE/source"
+          printf 'commit=%s\n' "$expected_commit" >> "$GITHUB_OUTPUT"
+          printf 'tag-object=%s\n' "$expected_tag_object" >> "$GITHUB_OUTPUT"
+
+      - name: Seal approved asset snapshot
+        id: snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: clawdex-${{ env.RELEASE_TAG }}-approved-assets
+          path: artifacts/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  verify-darwin:
+    needs: verify-inventory
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-15
+            mode: --darwin-arm64
+          - runs-on: macos-15-intel
+            mode: --darwin-amd64
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Checkout trusted verifier
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Download approved asset snapshot
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.verify-inventory.outputs.snapshot-id }}
+          path: artifacts
+          merge-multiple: true
+
+      - name: Setup exact Go metadata reader
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: 1.26.5
+          cache: false
+
+      - name: Verify notarized candidate without token
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN
+          expected_commit="${{ needs.verify-inventory.outputs.commit }}"
+          [[ "$expected_commit" =~ ^[0-9a-f]{40}$ ]]
+          verifier_home=$(mktemp -d "$RUNNER_TEMP/clawdex-verifier-home.XXXXXX")
+          env -i PATH="$PATH" HOME="$verifier_home" TMPDIR="$RUNNER_TEMP" \
+            EXPECTED_COMMIT="$expected_commit" \
+            EXPECTED_TAG_OBJECT="${{ needs.verify-inventory.outputs.tag-object }}" \
+            EXPECTED_DRIVER_COMMIT="$GITHUB_WORKFLOW_SHA" \
+            bash trusted/scripts/verify-clawdex-release.sh \
+              "$RELEASE_TAG" artifacts ${{ matrix.mode }}
+
+  publish:
+    if: inputs.publish
+    needs:
+      - verify-inventory
+      - verify-darwin
+    runs-on: ubuntu-latest
+    environment: clawdex-release
+    permissions:
+      actions: read
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Checkout trusted publisher
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Download approved asset snapshot
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.verify-inventory.outputs.snapshot-id }}
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish and re-download exact approved release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_COMMIT: ${{ needs.verify-inventory.outputs.commit }}
+          EXPECTED_TAG_OBJECT: ${{ needs.verify-inventory.outputs.tag-object }}
+          EXPECTED_DRIVER_COMMIT: ${{ github.workflow_sha }}
+          EXPECTED_RELEASE_ID: ${{ needs.verify-inventory.outputs.release-id }}
+          PUBLICATION_RUN_ID: ${{ github.run_id }}
+          PUBLICATION_SNAPSHOT_ID: ${{ needs.verify-inventory.outputs.snapshot-id }}
+          PUBLICATION_SNAPSHOT_DIGEST: ${{ needs.verify-inventory.outputs.snapshot-digest }}
+          CLAWDEX_PUBLICATION_HMAC_KEY: ${{ secrets.CLAWDEX_PUBLICATION_HMAC_KEY }}
+        run: |
+          set -euo pipefail
+          trusted/scripts/publish-clawdex-release.sh "$RELEASE_TAG" artifacts

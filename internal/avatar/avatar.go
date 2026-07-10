@@ -11,12 +11,12 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/openclaw/clawdex/internal/model"
+	"github.com/openclaw/clawdex/internal/safefile"
 )
 
 const DirName = "avatars"
@@ -40,7 +40,7 @@ func InspectBytes(data []byte) (model.SourceAvatar, error) {
 }
 
 func InspectFile(path string) (model.AvatarRef, error) {
-	data, err := os.ReadFile(path)
+	data, err := safefile.ReadPath(path)
 	if err != nil {
 		return model.AvatarRef{}, err
 	}
@@ -58,8 +58,8 @@ func InspectFile(path string) (model.AvatarRef, error) {
 	}, nil
 }
 
-func SetManual(person model.Person, srcPath string, now time.Time) (model.Person, error) {
-	data, err := os.ReadFile(srcPath)
+func SetManual(root string, person model.Person, srcPath string, now time.Time) (model.Person, error) {
+	data, err := safefile.ReadPath(srcPath)
 	if err != nil {
 		return model.Person{}, err
 	}
@@ -67,7 +67,7 @@ func SetManual(person model.Person, srcPath string, now time.Time) (model.Person
 	if err != nil {
 		return model.Person{}, err
 	}
-	ref, err := write(person, source, "manual", now)
+	ref, err := write(root, person, source, "manual", now)
 	if err != nil {
 		return model.Person{}, err
 	}
@@ -75,25 +75,33 @@ func SetManual(person model.Person, srcPath string, now time.Time) (model.Person
 	return person, nil
 }
 
-func SetImported(person model.Person, source model.SourceAvatar, sourceName string, now time.Time) (model.Person, bool, error) {
-	if len(source.Data) == 0 {
-		return person, false, nil
+// ValidateManual applies SetManual's source and destination checks without
+// creating or replacing avatar files.
+func ValidateManual(root string, person model.Person, srcPath string) (model.AvatarRef, error) {
+	data, err := safefile.ReadPath(srcPath)
+	if err != nil {
+		return model.AvatarRef{}, err
 	}
-	if source.SHA256 == "" || source.MIME == "" {
-		var err error
-		source, err = InspectBytes(source.Data)
-		if err != nil {
-			return model.Person{}, false, err
-		}
+	source, err := InspectBytes(data)
+	if err != nil {
+		return model.AvatarRef{}, err
 	}
-	current := person.Avatar
-	if current.SHA256 == source.SHA256 {
-		return person, false, nil
+	ref, dest, err := plannedAvatar(root, person, source, "manual", time.Time{})
+	if err != nil {
+		return model.AvatarRef{}, err
 	}
-	if current.Path != "" && current.Source != "" && current.Source != sourceName {
-		return person, false, nil
+	if err := safefile.ValidateAtomicWrite(root, dest); err != nil {
+		return model.AvatarRef{}, err
 	}
-	ref, err := write(person, source, sourceName, now)
+	return ref, nil
+}
+
+func SetImported(root string, person model.Person, source model.SourceAvatar, sourceName string, now time.Time) (model.Person, bool, error) {
+	source, changed, err := prepareImported(person, source, sourceName)
+	if err != nil || !changed {
+		return person, changed, err
+	}
+	ref, err := write(root, person, source, sourceName, now)
 	if err != nil {
 		return model.Person{}, false, err
 	}
@@ -101,23 +109,62 @@ func SetImported(person model.Person, source model.SourceAvatar, sourceName stri
 	return person, true, nil
 }
 
+// ValidateImported applies SetImported's overwrite and destination checks
+// without writing. The bool reports whether SetImported would replace bytes.
+func ValidateImported(root string, person model.Person, source model.SourceAvatar, sourceName string) (bool, error) {
+	source, changed, err := prepareImported(person, source, sourceName)
+	if err != nil || !changed {
+		return changed, err
+	}
+	_, dest, err := plannedAvatar(root, person, source, sourceName, time.Time{})
+	if err != nil {
+		return false, err
+	}
+	if err := safefile.ValidateAtomicWrite(root, dest); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func prepareImported(person model.Person, source model.SourceAvatar, sourceName string) (model.SourceAvatar, bool, error) {
+	if len(source.Data) == 0 {
+		return source, false, nil
+	}
+	if source.SHA256 == "" || source.MIME == "" {
+		var err error
+		source, err = InspectBytes(source.Data)
+		if err != nil {
+			return model.SourceAvatar{}, false, err
+		}
+	}
+	current := person.Avatar
+	if current.SHA256 == source.SHA256 {
+		return source, false, nil
+	}
+	if current.Path != "" && current.Source != "" && current.Source != sourceName {
+		return source, false, nil
+	}
+	return source, true, nil
+}
+
 func Clear(person model.Person) model.Person {
 	person.Avatar = model.AvatarRef{}
 	return person
 }
 
-func Validate(person model.Person) []Problem {
+func Validate(root string, person model.Person) []Problem {
 	if strings.TrimSpace(person.Avatar.Path) == "" {
 		return nil
 	}
-	path, err := absolutePath(person, person.Avatar.Path)
+	relative, err := relativePath(root, person, person.Avatar.Path)
 	if err != nil {
 		return []Problem{{Path: person.Path, Message: err.Error()}}
 	}
-	ref, err := InspectFile(path)
+	ref, err := inspectRootedFile(root, relative)
 	if err != nil {
-		return []Problem{{Path: path, Message: "avatar file missing or unreadable: " + err.Error()}}
+		return []Problem{{Path: person.Path, Message: "avatar file missing or unreadable: " + err.Error()}}
 	}
+	path := filepath.Join(root, relative)
 	var problems []Problem
 	if person.Avatar.SHA256 != "" && person.Avatar.SHA256 != ref.SHA256 {
 		problems = append(problems, Problem{Path: path, Message: "avatar sha256 metadata is stale"})
@@ -128,15 +175,15 @@ func Validate(person model.Person) []Problem {
 	return problems
 }
 
-func RepairMetadata(person model.Person, now time.Time) (model.Person, bool, error) {
+func RepairMetadata(root string, person model.Person, now time.Time) (model.Person, bool, error) {
 	if strings.TrimSpace(person.Avatar.Path) == "" {
 		return person, false, nil
 	}
-	path, err := absolutePath(person, person.Avatar.Path)
+	relative, err := relativePath(root, person, person.Avatar.Path)
 	if err != nil {
 		return person, false, err
 	}
-	ref, err := InspectFile(path)
+	ref, err := inspectRootedFile(root, relative)
 	if err != nil {
 		return person, false, err
 	}
@@ -151,11 +198,41 @@ func RepairMetadata(person model.Person, now time.Time) (model.Person, bool, err
 	return person, changed, nil
 }
 
-func AbsolutePath(person model.Person) (string, error) {
-	return absolutePath(person, person.Avatar.Path)
+func inspectRootedFile(root, relative string) (model.AvatarRef, error) {
+	data, err := safefile.ReadFile(root, relative)
+	if err != nil {
+		return model.AvatarRef{}, err
+	}
+	source, err := InspectBytes(data)
+	if err != nil {
+		return model.AvatarRef{}, err
+	}
+	width, height := dimensions(data)
+	return model.AvatarRef{
+		Path:   filepath.Join(root, relative),
+		MIME:   source.MIME,
+		SHA256: source.SHA256,
+		Width:  width,
+		Height: height,
+	}, nil
 }
 
-func write(person model.Person, source model.SourceAvatar, sourceName string, now time.Time) (model.AvatarRef, error) {
+func AbsolutePath(root string, person model.Person) (string, error) {
+	return absolutePath(root, person, person.Avatar.Path)
+}
+
+func write(root string, person model.Person, source model.SourceAvatar, sourceName string, now time.Time) (model.AvatarRef, error) {
+	ref, dest, err := plannedAvatar(root, person, source, sourceName, now)
+	if err != nil {
+		return model.AvatarRef{}, err
+	}
+	if err := safefile.AtomicWriteFile(root, dest, source.Data, 0o600); err != nil {
+		return model.AvatarRef{}, err
+	}
+	return ref, nil
+}
+
+func plannedAvatar(root string, person model.Person, source model.SourceAvatar, sourceName string, now time.Time) (model.AvatarRef, string, error) {
 	width, height := dimensions(source.Data)
 	ext := extension(source.MIME)
 	if ext == "" {
@@ -165,15 +242,9 @@ func write(person model.Person, source model.SourceAvatar, sourceName string, no
 		ext = ".img"
 	}
 	rel := filepath.Join(DirName, "avatar"+ext)
-	dest, err := absolutePath(person, rel)
+	dest, err := relativePath(root, person, rel)
 	if err != nil {
-		return model.AvatarRef{}, err
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return model.AvatarRef{}, err
-	}
-	if err := os.WriteFile(dest, source.Data, 0o600); err != nil {
-		return model.AvatarRef{}, err
+		return model.AvatarRef{}, "", err
 	}
 	mime := strings.TrimSpace(source.MIME)
 	if mime == "" {
@@ -187,10 +258,18 @@ func write(person model.Person, source model.SourceAvatar, sourceName string, no
 		Width:     width,
 		Height:    height,
 		UpdatedAt: now.UTC(),
-	}, nil
+	}, dest, nil
 }
 
-func absolutePath(person model.Person, rel string) (string, error) {
+func absolutePath(root string, person model.Person, rel string) (string, error) {
+	path, err := relativePath(root, person, rel)
+	if err != nil {
+		return "", err
+	}
+	return safefile.ExistingPath(root, path)
+}
+
+func relativePath(root string, person model.Person, rel string) (string, error) {
 	if strings.TrimSpace(person.Path) == "" {
 		return "", errors.New("person path is required")
 	}
@@ -202,7 +281,7 @@ func absolutePath(person model.Person, rel string) (string, error) {
 		return "", fmt.Errorf("avatar path escaped person directory: %s", rel)
 	}
 	base := filepath.Dir(person.Path)
-	return filepath.Join(base, clean), nil
+	return safefile.Relative(root, filepath.Join(base, clean))
 }
 
 func dimensions(data []byte) (int, int) {

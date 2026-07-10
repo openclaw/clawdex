@@ -88,10 +88,17 @@ These apply to every subcommand:
 | `--repo DIR`     | `CLAWDEX_REPO`     | Override the contacts data repo for this run.           |
 | `--json`         |                    | Stable JSON envelope on stdout.                         |
 | `--plain`        |                    | TSV on stdout (script-friendly).                        |
-| `--dry-run`, `-n`|                    | Preview without writing.                                |
+| `--dry-run`, `-n`|                    | Preview without changing local Clawdex or Git state.    |
 | `--no-input`     |                    | Never prompt; useful in CI.                             |
 | `--verbose`, `-v`|                    | Verbose diagnostics on stderr.                          |
 | `--version`      |                    | Print version and exit.                                 |
+
+`--dry-run` is global: `init`, config changes, person and note changes,
+imports, file exports, Git helpers, doctor repairs, and automatic frontmatter
+repair perform validation and produce previews without changing the config,
+contacts repo, export path, or Git state. `person edit` does not launch an
+editor. `export vcard -o -` may still emit the requested vCard bytes to stdout,
+and import adapters still perform their documented source reads.
 
 ## Environment
 
