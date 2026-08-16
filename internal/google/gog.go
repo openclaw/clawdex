@@ -51,7 +51,7 @@ func (g GogAdapter) ListContactsWithOptions(ctx context.Context, account string,
 	var out []model.SourceContact
 	page := ""
 	seenPageTokens := make(map[string]struct{})
-	for pages := 0; pages < maxContactsListPages; pages++ {
+	for range maxContactsListPages {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
