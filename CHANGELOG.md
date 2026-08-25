@@ -6,6 +6,7 @@
 - Enforced the global `--dry-run` no-write contract across initialization, config, people, notes, imports, vCard export, Git helpers, doctor repairs, and automatic repair.
 - Updated to Go 1.26.6 and CrawlKit 0.13.4 to resolve Go standard-library vulnerabilities GO-2026-5856, GO-2026-5026, GO-2026-5972, GO-2026-6090, and GO-2026-6218.
 - Fixed Unicode-safe search snippets, live Discrawl WAL reads, unexpected person-directory errors, and tagged `go install` version reporting.
+- Preserved nested entities and markup-like text in generated `llms.txt` metadata.
 - Replaced legacy CI publication with a credential-free, read-only mounted release driver, locally Foundation-signed and notarized Darwin artifacts, protected-default-branch signed-tag-object reproduction, exact embedded-requirement, provenance, signature, online notarization, sealed-snapshot publication, and downstream re-download verification.
 
 ## 0.1.0 - 2026-05-08

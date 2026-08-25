@@ -66,6 +66,21 @@ jobs:
         run: |
           "$(go env GOPATH)/bin/gosec" -exclude=G101,G115,G202,G301,G304 ./...
 
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.5.0
+        with:
+          node-version: 24
+
+      - name: Test site tooling
+        run: node --test scripts/*.test.mjs
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
