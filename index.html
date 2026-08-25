@@ -9,8 +9,8 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='14' width='52' height='40' rx='4' fill='%23f5e9c8' stroke='%23231f1c' stroke-width='3'/%3E%3Crect x='6' y='14' width='52' height='8' fill='%23d94e3a'/%3E%3Cline x1='14' y1='32' x2='50' y2='32' stroke='%23231f1c' stroke-width='2'/%3E%3Cline x1='14' y1='40' x2='50' y2='40' stroke='%23231f1c' stroke-width='2'/%3E%3Cline x1='14' y1='48' x2='38' y2='48' stroke='%23231f1c' stroke-width='2'/%3E%3C/svg%3E">
 
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-light.min.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-light.min.css" integrity="sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5" crossorigin="anonymous" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" integrity="sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07" crossorigin="anonymous" media="(prefers-color-scheme: dark)">
 
   <style>
     :root {
@@ -492,11 +492,11 @@
     </footer>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/go.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/dockerfile.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js" integrity="sha384-k8o8HikHweyzW55Wd3wl18ovJj6vHVYNQeQbeSM0fxx+0WiH4TcccOG9uz8Xd2JR" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js" integrity="sha384-GdEWAbCjn+ghjX0gLx7/N1hyTVmPAjdC2OvoAA0RyNcAOhqwtT8qnbCxWle2+uJX" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/go.min.js" integrity="sha384-Mtb4EH3R9NMDME1sPQALOYR8KGqwrXAtmc6XGxDd0XaXB23irPKsuET0JjZt5utI" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/dockerfile.min.js" integrity="sha384-jg4vR4ePpACdBVLAe+31BrI3MW4sfv1AS62HlXRXmQWk2q98yJqKR5VxHzuABw8X" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js" integrity="sha384-eEu5CTj3qGvu9PdJuS+YlkNi7d2XxQROAFYOr59zgObtlcux1ae1Il3u7jvdCSWu" crossorigin="anonymous"></script>
 
   <script>
     (function () {
@@ -530,6 +530,20 @@
       const metaSlug = document.getElementById("meta-slug");
       const metaLink = document.getElementById("meta-link");
       const cache = new Map();
+
+      function showMessage(message, error = false) {
+        const paragraph = document.createElement("p");
+        paragraph.className = "placeholder" + (error ? " error" : "");
+        paragraph.textContent = message;
+        article.replaceChildren(paragraph);
+      }
+
+      const missing = ["marked", "hljs", "DOMPurify"].filter(name => !window[name]);
+      if (missing.length) {
+        showMessage("documentation viewer unavailable: missing " + missing.join(", ") + ". Reload to retry.", true);
+        return;
+      }
+      const { marked, hljs, DOMPurify } = window;
 
       // Register short aliases highlight.js doesn't ship by default.
       const ALIASES = { toml: "ini", sh: "bash", shell: "bash", zsh: "bash", txt: "plaintext", text: "plaintext" };
@@ -586,7 +600,7 @@
 
       async function load(slug) {
         setActive(slug);
-        article.innerHTML = '<p class="placeholder">flipping to ' + slug + '…</p>';
+        showMessage("flipping to " + slug + "…");
         let md = cache.get(slug);
         if (!md) {
           try {
@@ -596,12 +610,11 @@
             md = await res.text();
             cache.set(slug, md);
           } catch (err) {
-            article.innerHTML = '<p class="placeholder error">card not found: ' + slug + ' — ' + err.message + '</p>';
+            showMessage("card not found: " + slug + " — " + err.message + ". Reload to retry.", true);
             return;
           }
         }
-        const dirty = marked.parse(md);
-        const clean = window.DOMPurify ? DOMPurify.sanitize(dirty, { ADD_ATTR: ['target'] }) : dirty;
+        const clean = DOMPurify.sanitize(marked.parse(md), { ADD_ATTR: ['target'] });
         article.innerHTML = clean;
 
         const sub = location.hash.split("#")[2];
