@@ -38,8 +38,7 @@ var runSwiftContacts = func(ctx context.Context, script string) ([]byte, error) 
 	cmd := swiftCommand(ctx, script)
 	out, err := cmd.Output()
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
+		if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 			return nil, fmt.Errorf("read macOS Contacts: %s", string(ee.Stderr))
 		}
 		return nil, fmt.Errorf("run swift Contacts helper: %w", err)

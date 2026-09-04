@@ -3,10 +3,10 @@ module github.com/openclaw/clawdex
 go 1.26.6
 
 require (
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.1
 	github.com/google/uuid v1.6.0
-	github.com/openclaw/crawlkit v0.13.4
-	golang.org/x/sys v0.46.0
+	github.com/openclaw/crawlkit v0.14.7
+	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

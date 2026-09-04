@@ -93,8 +93,7 @@ func resolveDBPath(path string) (string, error) {
 }
 
 func sqliteErr(err error) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return fmt.Errorf("discrawl sqlite query: %s", strings.TrimSpace(string(exitErr.Stderr)))
 	}
 	return err

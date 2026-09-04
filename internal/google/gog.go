@@ -66,8 +66,7 @@ func (g GogAdapter) ListContactsWithOptions(ctx context.Context, account string,
 		cmd := exec.CommandContext(ctx, binary, args...)
 		raw, err := cmd.Output()
 		if err != nil {
-			var ee *exec.ExitError
-			if errors.As(err, &ee) {
+			if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 				return nil, fmt.Errorf("gog contacts list: %s", strings.TrimSpace(string(ee.Stderr)))
 			}
 			return nil, err

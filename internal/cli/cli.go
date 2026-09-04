@@ -118,8 +118,7 @@ func ExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	var usage usageErr
-	if errors.As(err, &usage) {
+	if _, ok := errors.AsType[usageErr](err); ok {
 		return 2
 	}
 	return 1
