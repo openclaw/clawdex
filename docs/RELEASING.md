@@ -69,7 +69,7 @@ policy migration, not an action performed by candidate code or ordinary builds.
 ## 1) Local proof
 
 ```bash
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1 run
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
 go test -count=1 ./... -coverprofile=coverage.out
 go tool cover -func=coverage.out | tail -n 1
 go test -count=1 -race ./...
