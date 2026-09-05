@@ -2,8 +2,7 @@
 
 ## 0.2.0 - Unreleased
 
-**Highlights:** Import contacts from compatible local crawlers, with safer matching, local-only setup, and more reliable archive maintenance.
-
+- **Highlights:** Import contacts from compatible local crawlers, with safer matching, local-only setup, and more reliable archive maintenance.
 - Added `import contacts --from` for compatible crawler exports, including Telecrawl and Wacrawl, with per-source evidence, normalized phone deduplication, idempotent imports, and safeguards against name-only and cross-person joins. Thanks @joshp123.
 - Made initialization local-only by default; backup remotes are configured explicitly. Thanks @TeodoroRodrigo.
 - Enforced the global `--dry-run` no-write contract across initialization, config, people, notes, imports, vCard export, Git helpers, doctor repairs, and automatic repair.
