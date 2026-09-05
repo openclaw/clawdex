@@ -107,7 +107,7 @@ git push origin main vX.Y.Z
 The remote tag must be an annotated tag whose embedded `tag` header exactly
 matches `vX.Y.Z`, resolve to the reviewed release commit, and carry the approved
 SSH signature. This prevents a correctly signed tag object from being replayed
-under a different ref name. This v0.1 release lane accepts stable `vX.Y.Z` tags
+under a different ref name. This release lane accepts stable `vX.Y.Z` tags
 only; prereleases require a separate metadata-aware process. The credentialed
 packager never executes code or policy from that tag before authenticating it.
 

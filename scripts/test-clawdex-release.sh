@@ -437,7 +437,7 @@ unset GH_TOKEN GITHUB_TOKEN
 
 write_finalized_changelog() {
   awk '
-    /^## 0\.1\.1 - Unreleased$/ { print "## 0.1.1 - 2026-07-09"; next }
+    /^## [0-9]+\.[0-9]+\.[0-9]+ - Unreleased$/ { print "## 0.1.1 - 2026-07-09"; next }
     { print }
   ' "$ROOT/CHANGELOG.md" > "$WORK_DIR/release-changelog.md"
 }
