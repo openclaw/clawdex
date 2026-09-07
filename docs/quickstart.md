@@ -5,7 +5,7 @@ Five minutes from a fresh install to a populated, committed contact index.
 ## 1. Install
 
 ```bash
-brew install steipete/tap/clawdex
+brew install openclaw/tap/clawdex
 clawdex --version
 ```
 

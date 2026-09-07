@@ -14,7 +14,8 @@ builds:
     ldflags:
       - -s -w -X github.com/openclaw/clawdex/internal/cli.Version={{ .Version }}
     targets:
-      # Official Darwin assets come only from the local signed/notarized path.
+      - darwin_amd64
+      - darwin_arm64
       - linux_amd64
       - linux_arm64
       - windows_amd64
@@ -26,6 +27,10 @@ archives:
     formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
     format_overrides:
       - goos: windows
         formats:

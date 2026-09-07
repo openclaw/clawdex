@@ -191,8 +191,8 @@ jobs:
               go build -trimpath -o "/tmp/clawdex-${goos}-${goarch}${suffix}" ./cmd/clawdex
           done
 
-      - name: Test signed release tooling with isolated mocks
-        run: bash scripts/test-clawdex-release.sh
+      - name: Validate workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= .github/workflows/*.yml
 
       - name: Snapshot release build
         uses: goreleaser/goreleaser-action@v7.2.3

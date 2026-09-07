@@ -1,0 +1,56 @@
+name: Release (unified)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable SemVer to release
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Check dated changelog and version files
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node scripts/check-release.mjs "$RELEASE_VERSION"
+
+  release:
+    needs: preflight
+    permissions:
+      actions: read
+      checks: read
+      contents: write
+      pull-requests: write
+      statuses: read
+    uses: openclaw/release-workflows/.github/workflows/release-go-cli.yml@v1
+    with:
+      version: ${{ inputs.version }}
+      repository-type: openclaw
+      homebrew-tap: openclaw/homebrew-tap
+      homebrew-formula: clawdex
+      archive-files: '["CHANGELOG.md","LICENSE","README.md"]'
+      checksum-filename: checksums.txt
+      nfpm: disabled
+      stable-identifier: org.openclaw.clawdex
+      darwin-universal: disabled
+      ci-check-events: '["push","pull_request"]'
+      strict-checks: true
+      reproducible-rebuild: non-darwin
+    secrets:
+      MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGNING_P12 }}
+      MACOS_SIGNING_P12_PASSWORD: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY_P8: ${{ secrets.ASC_PRIVATE_KEY_P8 }}
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

@@ -19,7 +19,7 @@ https://github.com/<you>/backup-clawdex.git
 Install from Homebrew:
 
 ```bash
-brew install steipete/tap/clawdex
+brew install openclaw/tap/clawdex
 ```
 
 Or build locally:
@@ -148,19 +148,12 @@ The `index/*.json` files are derived and rebuildable. Markdown is canonical.
 
 ## Releases
 
-Release archives are built from a credential-free, read-only driver disk image
-materialized and mounted from the exact current protected-branch commit, then
-from a fresh, authenticated signed-tag checkout. Official Darwin binaries are
-Foundation-signed with the permanent identifier
-`org.openclaw.clawdex`, hardened runtime, secure timestamp, and Apple
-notarization. A protected-default-branch workflow verifies the exact uploaded
-inventory, trusted signed tag object and commit, reproducible non-Darwin payloads, checksums,
-provenance, Darwin build metadata bound to that commit and Go 1.26.6,
-signatures, exact embedded designated requirements, and online notarization
-constraints before publication. After separate VM and approval gates, the
-protected workflow publishes and re-downloads the exact sealed asset snapshot.
-Naturally quarantined execution on clean Intel and Apple Silicon VMs is a
-separate Gatekeeper gate.
-Homebrew updates are a separate post-release step.
+Official releases use the shared OpenClaw Go CLI workflow. It freezes a green
+protected-branch commit, creates the annotated version tag, builds the six
+native archives, and signs and notarizes Darwin binaries as
+`org.openclaw.clawdex` with the OpenClaw Foundation identity. Independent
+macOS verifiers and a separate non-Darwin rebuild check the staged artifacts
+before publication. The workflow verifies the published bytes, updates
+`openclaw/tap`, and opens an Unreleased closeout PR.
 
 Release checklist: [`docs/RELEASING.md`](docs/RELEASING.md).

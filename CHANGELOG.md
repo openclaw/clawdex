@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Simplified signed releases through the shared OpenClaw Go CLI workflow, with automated notarization, artifact verification, and Homebrew updates.
+
 ## 0.2.0 - 2026-09-05
 
 - **Highlights:** Import contacts from compatible local crawlers, with safer matching, local-only setup, and more reliable archive maintenance.

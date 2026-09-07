@@ -7,11 +7,11 @@
 ## Homebrew (macOS, Linux)
 
 ```bash
-brew install steipete/tap/clawdex
+brew install openclaw/tap/clawdex
 clawdex --version
 ```
 
-The Homebrew formula lives in `steipete/homebrew-tap`. It is updated only after
+The Homebrew formula lives in `openclaw/homebrew-tap`. It is updated only after
 the release inventory and Darwin trust checks have passed.
 
 ## Go install
@@ -35,13 +35,12 @@ go build -o ./bin/clawdex ./cmd/clawdex
 
 ## GitHub release archives
 
-Release assets are built locally from the signed tag. Darwin binaries are
+Release assets are built by the shared OpenClaw Go CLI workflow from a frozen
+protected-branch commit and workflow-owned annotated tag. Darwin binaries are
 Foundation-signed and Apple-notarized with the permanent identifier
-`org.openclaw.clawdex`; Linux and Windows builds remain credential-free. The
-protected release workflow reproducibly rebuilds all four non-Darwin payloads,
-binds the signed annotated tag object and commit, seals the verified inventory,
-and publishes then re-downloads that exact snapshot after the native Darwin and
-approval gates pass.
+`org.openclaw.clawdex`. Independent native macOS verification and reproducible
+non-Darwin rebuilds bind the inventory, checksums, release notes, and exact
+artifact bytes before publication and the Homebrew handoff.
 
 - `clawdex_<version>_darwin_amd64.tar.gz`
 - `clawdex_<version>_darwin_arm64.tar.gz`
@@ -50,7 +49,9 @@ approval gates pass.
 - `clawdex_<version>_windows_amd64.zip`
 - `clawdex_<version>_windows_arm64.zip`
 - `checksums.txt`
-- `provenance.json`
+- `ASSET-INVENTORY.json`
+- `RELEASE-NOTES.md`
+- `SIGNING-MANIFEST.json`
 
 Browse the [releases page](https://github.com/openclaw/clawdex/releases) for
 the latest tag.
@@ -90,9 +91,8 @@ The metadata must report identifier `org.openclaw.clawdex`, Team ID
 secure timestamp, and the release designated requirement. On macOS 26.5,
 `spctl --assess --type execute` rejects valid Apple-notarized standalone tools
 as code that is not an app; raw-CLI `spctl` success is therefore not a release
-or installation requirement. Gatekeeper proof comes from opening a naturally
-quarantined official archive on a clean macOS VM and running `clawdex`
-without a security alert.
+or installation requirement. The shared workflow verifies online notarization
+and native execution on independent Intel and Apple Silicon runners.
 
 After `clawdex init` (see [Quickstart](quickstart.md)), `clawdex doctor`
 prints a one-shot health summary: config path, repo path, remote, person
