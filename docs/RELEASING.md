@@ -130,8 +130,26 @@ formula URLs and hashes. A successful dispatch alone is insufficient.
 Clawdex does not publish an npm package.
 
 For an interrupted run, inspect the exact failed run and its frozen tag before
-rerunning failed jobs. The shared workflow owns retry validation; never replace
-its immutable tag or manually publish an unverified draft.
+retrying. Before promotion, failed jobs can be rerun normally. If the release
+is already public and the publisher failed its final API check, rerunning only
+that publisher returns `draft identity changed before content binding`.
+
+For that post-promotion case, rerun **Create exact draft** and its dependent jobs
+in the same workflow run, retaining the successful build, signing, and comparison
+artifacts. Resolve the job's API ID rather than copying a browser URL:
+
+```bash
+gh run view RUN_ID --repo openclaw/clawdex --json jobs --jq '.jobs[] | select(.name | contains("Create exact draft")) | {name, databaseId}'
+gh run rerun RUN_ID --repo openclaw/clawdex --job DRAFT_JOB_ID
+```
+
+The draft job reuses the existing signed payload and frozen notes, generates a
+new verification payload, and reruns both native verifiers. The publisher then
+requires the existing public release's notes and every asset byte to equal that
+verified payload, deletes only the redundant retry draft, and resumes Homebrew
+handoff. Do not rebuild or re-sign for this recovery: changed signing timestamps
+would produce different bytes. If the retained artifacts have expired, stop and
+resolve recovery separately; never move the tag or delete the public release.
 
 ## Closeout
 
