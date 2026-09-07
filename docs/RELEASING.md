@@ -27,6 +27,10 @@ GoReleaser linker flags; tagged `go install` builds use Go module metadata.
 Keep the `dev` source default rather than hardcoding a released version.
 These checks belong to the shared workflow, alongside the exact-commit CI gate.
 
+Keep `-trimpath` in the GoReleaser build flags. The independent rebuild uses a
+different checkout and module-cache directory; embedding either absolute path
+makes otherwise equivalent binaries fail the byte-for-byte comparison.
+
 Local checks and snapshots need no signing credentials:
 
 ```bash

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Made release binaries reproducible across checkout and dependency-cache locations so the independent rebuild gate can verify them before publication.
+
 ## 0.2.0 - 2026-09-06
 
 - **Highlights:** Import contacts from compatible local crawlers, with safer matching, local-only setup, and more reliable archive maintenance.
