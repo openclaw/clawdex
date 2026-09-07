@@ -18,18 +18,14 @@ entries into one dated `## X.Y.Z - YYYY-MM-DD` section, preserving Highlights
 first and ordering changes by user interest. Do not publish while release
 changes are still only listed under Unreleased.
 
-Check the requested stable version and dated notes:
-
-```bash
-node scripts/check-release.mjs X.Y.Z
-```
-
-The preflight requires one matching dated section with release-note bullets.
+The shared workflow validates SemVer and requires exactly one matching dated
+level-two changelog section on the frozen source. It preserves that section as
+the release notes, including Highlights and their original ordering.
 Any present `.release-version`, `VERSION`, `version.txt`, or root `package.json`
 version must agree. Clawdex currently injects `internal/cli.Version` through
 GoReleaser linker flags; tagged `go install` builds use Go module metadata.
 Keep the `dev` source default rather than hardcoding a released version.
-The shared workflow repeats version and changelog validation on its frozen source.
+These checks belong to the shared workflow, alongside the exact-commit CI gate.
 
 Local checks and snapshots need no signing credentials:
 

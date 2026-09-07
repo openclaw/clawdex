@@ -4,29 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Stable SemVer to release
+        description: SemVer to release
         required: true
         type: string
 
 permissions: {}
 
 jobs:
-  preflight:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 24
-      - name: Check dated changelog and version files
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-        run: node scripts/check-release.mjs "$RELEASE_VERSION"
-
   release:
-    needs: preflight
     permissions:
       actions: read
       checks: read
