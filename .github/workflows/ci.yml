@@ -136,6 +136,28 @@ jobs:
           ./bin/clawdex --config "$cfg" --plain search release | grep -q "CI Person"
           ./bin/clawdex --config "$cfg" doctor --repair --dry-run
 
+  windows-repair:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test native repair paths
+        run: go test -count=1 ./internal/markdown
+
+      - name: Build
+        run: go build -o bin/clawdex.exe ./cmd/clawdex
+
+      - name: Smoke test repair and backup preservation
+        run: node scripts/smoke-repair.mjs ./bin/clawdex.exe
+
   deps:
     runs-on: ubuntu-latest
     timeout-minutes: 15

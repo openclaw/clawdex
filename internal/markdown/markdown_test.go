@@ -65,6 +65,75 @@ func TestPersonRepairSalvagesBrokenFrontmatter(t *testing.T) {
 	}
 }
 
+func TestBackupOriginalDoesNotCreateVolumeSegment(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "people", "ada", "person.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	original := "---\nid: person_1\nname: Ada Lovelace\ntags: [math\n---\n# Ada\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p, report, err := ReadPerson(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repairRoot := filepath.Join(dir, ".clawdex", "repairs")
+	if err := RepairPerson(path, repairRoot, p, report, true); err != nil {
+		t.Fatal(err)
+	}
+	var backups []string
+	err = filepath.WalkDir(repairRoot, func(walked string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, relErr := filepath.Rel(repairRoot, walked)
+		if relErr != nil {
+			return relErr
+		}
+		for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+			if strings.HasSuffix(part, ":") {
+				t.Fatalf("backup path created volume segment %q: %q", part, walked)
+			}
+		}
+		if !d.IsDir() {
+			backups = append(backups, walked)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("backups = %v", backups)
+	}
+	got, err := os.ReadFile(backups[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != original {
+		t.Fatalf("backup = %q", got)
+	}
+}
+
+func TestRepairBackupRelStripsVolumeName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "people", "ada", "person.md")
+	rel := repairBackupRel(path)
+	if vol := filepath.VolumeName(rel); vol != "" {
+		t.Fatalf("backup rel kept volume %q: %q from %q", vol, rel, path)
+	}
+	if filepath.IsAbs(rel) {
+		t.Fatalf("backup rel is still absolute: %q from %q", rel, path)
+	}
+	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+		if strings.HasSuffix(part, ":") {
+			t.Fatalf("volume-like segment %q in backup rel %q from %q", part, rel, path)
+		}
+	}
+}
+
 func TestReadPersonMissingFrontmatterInfersNameFromHeading(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "people", "ada", "person.md")

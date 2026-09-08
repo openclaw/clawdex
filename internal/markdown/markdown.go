@@ -361,7 +361,7 @@ func backupOriginal(path, repairRoot string) error {
 	if err != nil {
 		return err
 	}
-	rel := strings.TrimPrefix(filepath.Clean(path), string(filepath.Separator))
+	rel := repairBackupRel(path)
 	dest := filepath.Join(repairRoot, time.Now().UTC().Format("20060102T150405Z"), rel)
 	if !strings.HasPrefix(dest, filepath.Clean(repairRoot)+string(filepath.Separator)) {
 		return fmt.Errorf("repair backup escaped repair root: %s", dest)
@@ -371,6 +371,12 @@ func backupOriginal(path, repairRoot string) error {
 	}
 	// #nosec G703 -- dest is constrained to repairRoot above.
 	return os.WriteFile(dest, data, 0o600)
+}
+
+func repairBackupRel(path string) string {
+	clean := filepath.Clean(path)
+	rel := strings.TrimPrefix(clean, filepath.VolumeName(clean))
+	return strings.TrimPrefix(rel, string(filepath.Separator))
 }
 
 func salvagePerson(front string) model.Person {
