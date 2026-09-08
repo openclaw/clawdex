@@ -550,11 +550,15 @@ func sourceContactsFromExport(source string, export contactexport.ContactExport)
 }
 
 type ImportAppleCmd struct {
-	Input   string `name:"input" help:"JSON/NDJSON contact file instead of macOS Contacts"`
-	Avatars bool   `name:"avatars" help:"Import local avatar thumbnails"`
+	Input          string `name:"input" help:"JSON/NDJSON contact file instead of macOS Contacts"`
+	Avatars        bool   `name:"avatars" help:"Import local avatar thumbnails"`
+	MaxAvatarBytes int64  `name:"max-avatar-bytes" help:"Skip incoming Apple avatars larger than this many decoded bytes (0: unlimited)" default:"0"`
 }
 
 func (c *ImportAppleCmd) Run(r *Runtime) error {
+	if c.MaxAvatarBytes < 0 {
+		return errors.New("--max-avatar-bytes must be non-negative")
+	}
 	var contacts []apple.Contact
 	var err error
 	if c.Input != "" {
@@ -564,6 +568,16 @@ func (c *ImportAppleCmd) Run(r *Runtime) error {
 	}
 	if err != nil {
 		return err
+	}
+	if c.Avatars && c.MaxAvatarBytes > 0 {
+		for i := range contacts {
+			if size := int64(len(contacts[i].AvatarData)); size > c.MaxAvatarBytes {
+				if _, err := fmt.Fprintf(r.stderr, "warning: skipped incoming avatar for %q: %d bytes exceeds --max-avatar-bytes %d\n", contacts[i].Name(), size, c.MaxAvatarBytes); err != nil {
+					return err
+				}
+				contacts[i].AvatarData = nil
+			}
+		}
 	}
 	changes, err := r.store.ImportContacts("apple", apple.ToSourceContacts(contacts, c.Avatars), r.root.DryRun, time.Now())
 	if err != nil {

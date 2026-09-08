@@ -85,6 +85,15 @@ clawdex import apple  --avatars
 clawdex import google --account you@gmail.com --avatars
 ```
 
+Apple imports accept `--max-avatar-bytes N` with `--avatars` to skip incoming
+thumbnails above N decoded bytes. The default is `0` (unlimited), preserving
+existing imports. For example, `--max-avatar-bytes 10485760` skips thumbnails
+above 10 MiB with a warning on stderr, while contact fields and subsequent
+contacts continue importing. Existing avatar files and metadata stay intact.
+Dry runs apply the same filtering and warnings without writing. The limit is
+checked after JSON decoding, so it does not bound input memory. Manual and
+Google avatar limits are unchanged.
+
 - **Apple.** Reads the thumbnail bytes that
   [`Contacts.framework`](https://developer.apple.com/documentation/contacts)
   hands out. macOS-only.

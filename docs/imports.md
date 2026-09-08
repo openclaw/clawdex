@@ -51,6 +51,11 @@ clawdex import apple --input ~/Desktop/contacts.json
   buffer the Swift helper's output before decoding.
 - `--avatars` imports thumbnail bytes. Without it, only structured fields
   are imported.
+- With `--avatars`, `--max-avatar-bytes N` optionally skips incoming thumbnails
+  above N decoded bytes and warns on stderr, while continuing contact imports
+  and preserving existing avatars. `0` (the default) is unlimited; negative
+  values are rejected. Dry runs use the same filter. This does not limit memory
+  used while decoding the input.
 
 Manual avatars set with [`clawdex person avatar set`](avatars.md) are never
 overwritten. Tags, notes, and any custom frontmatter you've added by hand
