@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Highlights:** Repair damaged contacts reliably on Windows and optionally skip large Apple thumbnails without interrupting contact imports.
+- Fixed Windows contact repair backups failing on drive-letter paths; added native Windows CLI coverage for original-file preservation and repeat repairs. Thanks @SebTardif.
+- Added `import apple --avatars --max-avatar-bytes N` to skip oversized incoming thumbnails with a warning while preserving existing avatars and continuing contact imports; the default remains unlimited, and dry runs apply the same filter. Thanks @SebTardif.
+- Updated the Go 1.26 toolchain to 1.26.8 and gofumpt to 0.12.0 while preserving the existing macOS support baseline.
+
 ## 0.2.1 - 2026-09-06
 
 0.2.0 was tagged by a failed automated run but never published as a GitHub Release; its assets and release notes ship as 0.2.1.
