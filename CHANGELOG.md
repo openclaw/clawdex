@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.2.2 - 2026-09-07
 
 - **Highlights:** Repair damaged contacts reliably on Windows and optionally skip large Apple thumbnails without interrupting contact imports.
