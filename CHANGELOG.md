@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 - 2026-09-07
 
 - **Highlights:** Repair damaged contacts reliably on Windows and optionally skip large Apple thumbnails without interrupting contact imports.
 - Fixed Windows contact repair backups failing on drive-letter paths; added native Windows CLI coverage for original-file preservation and repeat repairs. Thanks @SebTardif.
