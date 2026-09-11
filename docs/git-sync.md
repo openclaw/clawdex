@@ -50,8 +50,10 @@ created — if there were no changes, `committed: false`.
 clawdex git pull
 ```
 
-Pulls from the configured remote on the configured branch. Resolve
-conflicts the way you'd resolve them in any other repo.
+Pulls from the configured remote on the configured branch using fast-forward-only
+updates. Unpublished local commits are preserved. If local and remote history
+have diverged, the command fails without resetting the local branch; reconcile
+the histories with Git before retrying.
 
 ### Push
 

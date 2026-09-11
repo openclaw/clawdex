@@ -180,11 +180,86 @@ func TestRepoInitGuardsAndRemoteLocal(t *testing.T) {
 	}
 }
 
-func runGit(t *testing.T, dir string, args ...string) {
+func TestPullPreservesLocalHistory(t *testing.T) {
+	for _, configuredRemote := range []bool{true, false} {
+		for _, scenario := range []string{"ahead", "diverged", "fast-forward"} {
+			name := scenario + "/origin-only"
+			if configuredRemote {
+				name = scenario + "/configured-remote"
+			}
+			t.Run(name, func(t *testing.T) {
+				dir := t.TempDir()
+				remote := filepath.Join(dir, "remote.git")
+				runGit(t, dir, "init", "--bare", "--initial-branch=contacts", remote)
+				cfg := DefaultConfig()
+				cfg.RepoPath = filepath.Join(dir, "local")
+				cfg.Git.Remote = remote
+				cfg.Git.Branch = "contacts"
+				r := Open(cfg.RepoPath, cfg)
+				if err := r.Init(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				if committed, err := r.Commit(t.Context(), "test: initial contacts"); err != nil || !committed {
+					t.Fatalf("initial commit=%v err=%v", committed, err)
+				}
+				if err := r.Push(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				writer := filepath.Join(dir, "writer")
+				runGit(t, dir, "clone", remote, writer)
+				if scenario != "fast-forward" {
+					if err := os.WriteFile(filepath.Join(r.Path, "local-note.md"), []byte("unpublished note\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+					if committed, err := r.Commit(t.Context(), "test: unpublished note"); err != nil || !committed {
+						t.Fatalf("local commit=%v err=%v", committed, err)
+					}
+				}
+				before := runGit(t, r.Path, "rev-parse", "HEAD")
+				if scenario != "ahead" {
+					if err := os.WriteFile(filepath.Join(writer, "remote-note.md"), []byte("remote note\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+					other := Open(writer, cfg)
+					if committed, err := other.Commit(t.Context(), "test: remote note"); err != nil || !committed {
+						t.Fatalf("remote commit=%v err=%v", committed, err)
+					}
+					runGit(t, writer, "push", "origin", "contacts")
+				}
+				if configuredRemote {
+					// The configured URL must still replace a stale origin before pulling.
+					runGit(t, r.Path, "remote", "set-url", "origin", filepath.Join(dir, "stale.git"))
+				} else {
+					r.Config.Git.Remote = ""
+				}
+				err := r.Pull(t.Context())
+				if (err != nil) != (scenario == "diverged") {
+					t.Fatalf("pull %s: %v", scenario, err)
+				}
+				wantHead := before
+				if scenario == "fast-forward" {
+					wantHead = runGit(t, writer, "rev-parse", "HEAD")
+				} else {
+					data, err := os.ReadFile(filepath.Join(r.Path, "local-note.md"))
+					if err != nil || string(data) != "unpublished note\n" {
+						t.Fatalf("local note lost: %q err=%v", data, err)
+					}
+				}
+				if got := runGit(t, r.Path, "rev-parse", "HEAD"); got != wantHead {
+					t.Fatalf("HEAD changed unexpectedly: got %s want %s", got, wantHead)
+				}
+			})
+		}
+	}
+}
+
+func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.CommandContext(t.Context(), "git", args...)
 	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
+	return strings.TrimSpace(string(out))
 }

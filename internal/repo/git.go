@@ -19,7 +19,14 @@ func (r Repo) Pull(ctx context.Context) error {
 	if err := r.requireRemote(ctx); err != nil {
 		return err
 	}
-	return mirror.PullCurrent(ctx, r.MirrorOptions())
+	opts := r.MirrorOptions()
+	if err := mirror.EnsureRepo(ctx, opts); err != nil {
+		return err
+	}
+	// CrawlKit 0.14.7 resets the branch when PullCurrent receives a remote URL.
+	// Configure origin first, then use its fast-forward-only path.
+	opts.Remote = ""
+	return mirror.PullCurrent(ctx, opts)
 }
 
 func (r Repo) Push(ctx context.Context) error {
