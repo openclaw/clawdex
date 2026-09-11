@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Highlights:** Keep unpublished contacts safe when pulling from a configured backup remote.
+- Fixed `git pull` discarding unpublished local commits when `git.remote` is configured; pulls now preserve local history and reject divergence instead of resetting the branch.
+- Updated x/sys to 0.48.0, deadcode to 0.50.0, and govulncheck to 1.8.0 while retaining Go 1.26.8 and the existing macOS support baseline.
+
 ## 0.2.2 - 2026-09-07
 
 - **Highlights:** Repair damaged contacts reliably on Windows and optionally skip large Apple thumbnails without interrupting contact imports.
