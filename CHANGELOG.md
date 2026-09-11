@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.2.3 - 2026-09-11
 
 - **Highlights:** Keep unpublished contacts safe when pulling from a configured backup remote.
