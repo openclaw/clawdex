@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.3 - 2026-09-11
 
 - **Highlights:** Keep unpublished contacts safe when pulling from a configured backup remote.
 - Fixed `git pull` discarding unpublished local commits when `git.remote` is configured; pulls now preserve local history and reject divergence instead of resetting the branch.
