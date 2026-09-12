@@ -86,7 +86,8 @@ clawdex config set google.default_account you@gmail.com
 ```
 
 `--avatars` fetches photo bytes through `gog contacts raw --person-fields photos`
-and stores them locally.
+and stores them locally. Empty contact lists succeed; pagination continues through
+empty pages when a next-page token is present.
 
 ## Birdclaw — X / Twitter DMs
 
@@ -95,6 +96,10 @@ clawdex import birdclaw --dry-run
 clawdex import birdclaw --min-messages 4
 clawdex import birdclaw --db ~/.birdclaw/birdclaw.sqlite
 ```
+
+Opens the existing database read-only; a missing path fails without creating
+a database, including during dry runs. Paths containing `?` or `#` are
+treated as literal filenames.
 
 Reads from your local [birdclaw](https://github.com/steipete/birdclaw)
 SQLite archive. For each DM thread above the `--min-messages` threshold,
@@ -117,7 +122,7 @@ Same shape as birdclaw, but reads from
 [discrawl](https://github.com/steipete/discrawl)'s SQLite cache. Discord
 handles land under `accounts.discord`. The database is opened read-only without
 SQLite's immutable hint so committed WAL records remain visible during a live
-Discrawl session.
+Discrawl session. It uses the same read-only, literal-path handling as Birdclaw.
 
 ## Crawler Contacts
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Google imports rejecting empty contact pages, and made Birdclaw/Discrawl source reads consistently read-only with literal database paths so dry runs cannot create missing archives.
+
 - Updated the YAML parser to the maintained YAML organization v3 release and refreshed documentation renderer dependencies, preserving Go 1.26.8 and the existing macOS baseline.
 
 ## 0.2.3 - 2026-09-11

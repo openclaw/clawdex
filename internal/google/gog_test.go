@@ -395,3 +395,29 @@ func TestFetchAvatarURLClientTimeout(t *testing.T) {
 		t.Fatal("fetchAvatarURL hung for 2s; client timeout did not fire")
 	}
 }
+
+func TestParseGogContactsEmptyEnvelopes(t *testing.T) {
+	for _, field := range []string{"contacts", "results", "people"} {
+		t.Run(field, func(t *testing.T) {
+			for _, token := range []string{"", "next"} {
+				input := fmt.Sprintf(`{"%s":[],"nextPageToken":%q}`, field, token)
+				contacts, next, err := parseGogContactsPage([]byte(input))
+				if err != nil || len(contacts) != 0 || next != token {
+					t.Fatalf("empty page: contacts=%v next=%q err=%v", contacts, next, err)
+				}
+			}
+		})
+	}
+}
+
+func TestGogAdapterContinuesPastEmptyPage(t *testing.T) {
+	bin, _ := writePaginationFixture(t, 2, `if [ "$n" -eq 1 ]; then
+  printf '%s\n' '{"contacts":[],"nextPageToken":"next"}'
+else
+  printf '%s\n' '{"contacts":[{"name":"Ada"}]}'
+fi`)
+	contacts, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "", Options{})
+	if err != nil || len(contacts) != 1 || contacts[0].Name != "Ada" {
+		t.Fatalf("contacts=%v err=%v", contacts, err)
+	}
+}

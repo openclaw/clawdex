@@ -35,7 +35,7 @@ JSON
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(args), "?mode=ro") || strings.Contains(string(args), "immutable=1") {
+	if !strings.Contains(string(args), "-readonly\n") || strings.Contains(string(args), "immutable=1") {
 		t.Fatalf("sqlite args = %q", args)
 	}
 }
@@ -76,5 +76,22 @@ func TestListDMContactsEmptyAndFilters(t *testing.T) {
 	contacts, err = (Adapter{Binary: empty}).ListDMContacts(t.Context(), 4)
 	if err != nil || len(contacts) != 0 {
 		t.Fatalf("contacts=%#v err=%v", contacts, err)
+	}
+}
+
+func TestReadOnlyLiteralDatabasePath(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "sqlite3")
+	db := filepath.Join(dir, "contacts?#.sqlite")
+	t.Setenv("EXPECTED_DB", db)
+	script := `#!/bin/sh
+[ "$1" = "-json" ] && [ "$2" = "-readonly" ] && [ "$3" = "$EXPECTED_DB" ] || { echo "expected read-only literal path" >&2; exit 2; }
+printf '[]'
+`
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (Adapter{DBPath: db, Binary: bin}).ListDMContacts(t.Context(), 4); err != nil {
+		t.Fatal(err)
 	}
 }

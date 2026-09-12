@@ -211,7 +211,7 @@ func parseGogContactsPage(data []byte) ([]model.SourceContact, string, error) {
 		people = append(people, env.Contacts...)
 		people = append(people, env.Results...)
 		people = append(people, env.People...)
-		if len(people) > 0 {
+		if env.Contacts != nil || env.Results != nil || env.People != nil {
 			return convertPeople(people), env.NextPageToken, nil
 		}
 	}

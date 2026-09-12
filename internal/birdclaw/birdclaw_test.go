@@ -82,3 +82,20 @@ func TestFirstNonEmpty(t *testing.T) {
 		t.Fatalf("got = %q", got)
 	}
 }
+
+func TestReadOnlyLiteralDatabasePath(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "sqlite3")
+	db := filepath.Join(dir, "contacts?#.sqlite")
+	t.Setenv("EXPECTED_DB", db)
+	script := `#!/bin/sh
+[ "$1" = "-json" ] && [ "$2" = "-readonly" ] && [ "$3" = "$EXPECTED_DB" ] || { echo "expected read-only literal path" >&2; exit 2; }
+printf '[]'
+`
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (Adapter{DBPath: db, Binary: bin}).ListDMContacts(t.Context(), 4); err != nil {
+		t.Fatal(err)
+	}
+}
