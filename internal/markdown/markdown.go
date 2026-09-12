@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openclaw/clawdex/internal/model"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type RepairReport struct {

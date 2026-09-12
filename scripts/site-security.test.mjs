@@ -4,13 +4,13 @@ import test from "node:test";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const expected = new Map([
-  ["https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-light.min.css", "sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5"],
-  ["https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css", "sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07"],
-  ["https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js", "sha384-k8o8HikHweyzW55Wd3wl18ovJj6vHVYNQeQbeSM0fxx+0WiH4TcccOG9uz8Xd2JR"],
-  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js", "sha384-GdEWAbCjn+ghjX0gLx7/N1hyTVmPAjdC2OvoAA0RyNcAOhqwtT8qnbCxWle2+uJX"],
-  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/go.min.js", "sha384-Mtb4EH3R9NMDME1sPQALOYR8KGqwrXAtmc6XGxDd0XaXB23irPKsuET0JjZt5utI"],
-  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/dockerfile.min.js", "sha384-jg4vR4ePpACdBVLAe+31BrI3MW4sfv1AS62HlXRXmQWk2q98yJqKR5VxHzuABw8X"],
-  ["https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js", "sha384-eEu5CTj3qGvu9PdJuS+YlkNi7d2XxQROAFYOr59zgObtlcux1ae1Il3u7jvdCSWu"],
+  ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-light.min.css", "sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5"],
+  ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-dark.min.css", "sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07"],
+  ["https://cdn.jsdelivr.net/npm/marked@18.0.12/lib/marked.umd.js", "sha384-TuL/7aNYXEDWjlcHi2CR+Een2A5pigrtJ97Tmx3WG69mx5kCSp8yKHRISW9xSmgq"],
+  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/highlight.min.js", "sha384-wjfDDhOPPdjtva8vWBhWeVprSpmxisEu5aYT3q1JyACqXpdKpo3PWZTMVq24MBix"],
+  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/languages/go.min.js", "sha384-orYKHAs3chK3oDMQLy5ywrzoY8z9zvzfmNIjmVxKXioAUtwDhP+xf6THWYSI/43Y"],
+  ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/languages/dockerfile.min.js", "sha384-/zu1pI8+9j/v/qNlCRRyidiBhGdxfvGwOLXEPBXpKc77eFNUAhccr0WglEQ+x9La"],
+  ["https://cdn.jsdelivr.net/npm/dompurify@3.4.15/dist/purify.min.js", "sha384-uUMu9JDY09vBzRf9SPcK2VgUj+W/70J6Soc+Dded5P474ElQ63iv9j5N3DE7Kp3N"],
 ]);
 
 function attribute(tag, name) {
