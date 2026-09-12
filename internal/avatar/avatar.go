@@ -39,25 +39,6 @@ func InspectBytes(data []byte) (model.SourceAvatar, error) {
 	}, nil
 }
 
-func InspectFile(path string) (model.AvatarRef, error) {
-	data, err := safefile.ReadPath(path)
-	if err != nil {
-		return model.AvatarRef{}, err
-	}
-	source, err := InspectBytes(data)
-	if err != nil {
-		return model.AvatarRef{}, err
-	}
-	width, height := dimensions(data)
-	return model.AvatarRef{
-		Path:   path,
-		MIME:   source.MIME,
-		SHA256: source.SHA256,
-		Width:  width,
-		Height: height,
-	}, nil
-}
-
 func SetManual(root string, person model.Person, srcPath string, now time.Time) (model.Person, error) {
 	data, err := safefile.ReadPath(srcPath)
 	if err != nil {

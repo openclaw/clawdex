@@ -185,21 +185,9 @@ func AtomicWriteFile(root, relative string, data []byte, perm os.FileMode) error
 	})
 }
 
-// ValidateWrite verifies an existing destination path without creating or
-// replacing anything. A missing leaf is allowed; every parent must already be
-// a real directory beneath root, and an existing leaf must be regular.
-func ValidateWrite(root, relative string) error {
-	r, err := os.OpenRoot(root)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = r.Close() }()
-	return ValidateWriteRoot(r, relative)
-}
-
-// ValidateWriteRoot applies ValidateWrite to an already-open root. The caller
-// retains ownership of root, which keeps a selected directory anchored across
-// symbolic-link renames.
+// ValidateWriteRoot verifies a destination beneath an already-open root.
+// A missing leaf is allowed; existing parents must be real directories and an
+// existing leaf must be regular. The caller retains ownership of root.
 func ValidateWriteRoot(root *os.Root, relative string) error {
 	if root == nil {
 		return errors.New("open root is required")

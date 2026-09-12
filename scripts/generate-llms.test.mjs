@@ -7,8 +7,9 @@ import test from "node:test";
 
 const generator = fs.readFileSync(new URL("./generate-llms.mjs", import.meta.url), "utf8");
 
-function generate({ title, description }) {
+function generate(t, { title, description }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "clawdex-llms-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, "scripts"));
   fs.writeFileSync(path.join(root, "scripts/generate-llms.mjs"), generator);
   fs.writeFileSync(path.join(root, "CNAME"), "clawdex.sh\n");
@@ -23,7 +24,6 @@ function generate({ title, description }) {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, "wrote llms.txt\n");
   const output = fs.readFileSync(path.join(root, "llms.txt"), "utf8");
-  fs.rmSync(root, { recursive: true, force: true });
   return output;
 }
 
@@ -36,8 +36,8 @@ const fixtures = [
 ];
 
 for (const [name, title, description, expectedTitle, expectedDescription] of fixtures) {
-  test(`generate-llms: ${name}`, () => {
-    const output = generate({ title, description });
+  test(`generate-llms: ${name}`, (t) => {
+    const output = generate(t, { title, description });
     assert.match(output, new RegExp(`^${escapeRegex(expectedDescription)}$`, "m"));
     assert.match(output, new RegExp(`^- ${escapeRegex(expectedTitle)}: https://clawdex\\.sh/$`, "m"));
   });

@@ -24,7 +24,7 @@ func TestWriteVCard(t *testing.T) {
 		Emails: []model.ContactValue{{Value: "ada@example.com", Label: "home"}},
 		Phones: []model.ContactValue{{Value: "+1 555 0100", Label: "mobile"}},
 	}
-	if err := Write(&buf, []model.Person{person}); err != nil {
+	if err := WriteWithOptions(&buf, []model.Person{person}, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -188,7 +188,7 @@ func TestWriteFileIsPrivateAtomicAndAnchorsSymlinkedParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := safefile.AtomicWriteRoot(anchoredRoot, relative, 0o600, func(w io.Writer) error {
-		return Write(w, people)
+		return WriteWithOptions(w, people, Options{})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestWriteLongInvalidUTF8Name(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- Write(&buf, []model.Person{person})
+		done <- WriteWithOptions(&buf, []model.Person{person}, Options{})
 	}()
 	select {
 	case err := <-done:
@@ -337,18 +337,18 @@ func TestWriteLongInvalidUTF8Name(t *testing.T) {
 
 func TestWriteSkipsEmptyValuesAndEmptyList(t *testing.T) {
 	var buf bytes.Buffer
-	if err := Write(&buf, nil); err != nil {
+	if err := WriteWithOptions(&buf, nil, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if buf.Len() != 0 {
 		t.Fatalf("buf = %q", buf.String())
 	}
-	err := Write(errWriter{}, []model.Person{{ID: "p", Name: "A"}})
+	err := WriteWithOptions(errWriter{}, []model.Person{{ID: "p", Name: "A"}}, Options{})
 	if err == nil {
 		t.Fatal("expected writer error")
 	}
 	buf.Reset()
-	if err := Write(&buf, []model.Person{{ID: "p", Name: "Solo", Emails: []model.ContactValue{{}}, Phones: []model.ContactValue{{}}, Tags: []string{"one", "two"}}}); err != nil {
+	if err := WriteWithOptions(&buf, []model.Person{{ID: "p", Name: "Solo", Emails: []model.ContactValue{{}}, Phones: []model.ContactValue{{}}, Tags: []string{"one", "two"}}}, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "EMAIL") || strings.Contains(buf.String(), "TEL") || !strings.Contains(buf.String(), "CATEGORIES:one\\,two") {

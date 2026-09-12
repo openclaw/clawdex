@@ -41,10 +41,6 @@ type GogAdapter struct {
 	FetchAvatar AvatarFetchFunc
 }
 
-func (g GogAdapter) ListContacts(ctx context.Context, account string) ([]model.SourceContact, error) {
-	return g.ListContactsWithOptions(ctx, account, Options{})
-}
-
 func (g GogAdapter) ListContactsWithOptions(ctx context.Context, account string, opts Options) ([]model.SourceContact, error) {
 	binary := g.Binary
 	if binary == "" {
@@ -206,11 +202,6 @@ type gogPerson struct {
 		GivenName   string `json:"givenName"`
 		FamilyName  string `json:"familyName"`
 	} `json:"names"`
-}
-
-func parseGogContacts(data []byte) ([]model.SourceContact, error) {
-	contacts, _, err := parseGogContactsPage(data)
-	return contacts, err
 }
 
 func parseGogContactsPage(data []byte) ([]model.SourceContact, string, error) {

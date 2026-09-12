@@ -22,7 +22,7 @@ func TestParseGogContactsEnvelopeAndArray(t *testing.T) {
 		[]byte(`[{"resource":"people/c1","names":[{"displayName":"Ada"}],"emailAddresses":[{"value":"ada@example.com","type":"home"}],"phoneNumbers":[{"value":"+1","type":"mobile"}]}]`),
 	}
 	for _, input := range inputs {
-		contacts, err := parseGogContacts(input)
+		contacts, _, err := parseGogContactsPage(input)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +45,7 @@ func TestGogAdapterListContactsUsesNoInput(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	contacts, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "ada@example.com")
+	contacts, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "ada@example.com", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ fi
 
 func TestGogAdapterListContactsRejectsRepeatedPageToken(t *testing.T) {
 	bin, count := writePaginationFixture(t, 2, `printf '%s\n' '{"contacts":[{"resourceName":"people/c1","name":"Ada"}],"nextPageToken":"same"}'`)
-	_, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "ada@example.com")
+	_, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "ada@example.com", Options{})
 	if err == nil || !strings.Contains(err.Error(), `repeated nextPageToken "same"`) {
 		t.Fatalf("err = %v", err)
 	}
@@ -106,7 +106,7 @@ func TestGogAdapterListContactsRejectsRepeatedPageToken(t *testing.T) {
 func TestGogAdapterListContactsRejectsAlternatingPageTokens(t *testing.T) {
 	bin, count := writePaginationFixture(t, 3, `if [ $((n % 2)) -eq 1 ]; then tok=A; else tok=B; fi
 printf '%s\n' "{\"contacts\":[{\"resourceName\":\"people/c$n\",\"name\":\"Ada$n\"}],\"nextPageToken\":\"$tok\"}"`)
-	_, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "ada@example.com")
+	_, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "ada@example.com", Options{})
 	if err == nil || !strings.Contains(err.Error(), `repeated nextPageToken "A"`) {
 		t.Fatalf("err = %v", err)
 	}
@@ -121,7 +121,7 @@ printf '%s\n' "{\"contacts\":[{\"resourceName\":\"people/c$n\",\"name\":\"Ada$n\
 
 func TestGogAdapterListContactsCapsIncrementingPageTokens(t *testing.T) {
 	bin, count := writePaginationFixture(t, 500, `printf '%s\n' "{\"contacts\":[{\"resourceName\":\"people/c$n\",\"name\":\"Ada$n\"}],\"nextPageToken\":\"page-$n\"}"`)
-	_, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "ada@example.com")
+	_, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "ada@example.com", Options{})
 	if err == nil || !strings.Contains(err.Error(), "exceeded 500 pages") {
 		t.Fatalf("err = %v", err)
 	}
@@ -140,7 +140,7 @@ func TestGogAdapterListContactsCompletesAfterFiftyPages(t *testing.T) {
 else
   printf '%s\n' "{\"contacts\":[{\"resourceName\":\"people/c$n\",\"name\":\"Ada$n\"}],\"nextPageToken\":\"page-$n\"}"
 fi`)
-	contacts, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "ada@example.com")
+	contacts, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "ada@example.com", Options{})
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
@@ -263,17 +263,17 @@ func TestGogAdapterListContactsCommandFailure(t *testing.T) {
 	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho nope >&2\nexit 7\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, err := (GogAdapter{Binary: bin}).ListContacts(t.Context(), "")
+	_, err := (GogAdapter{Binary: bin}).ListContactsWithOptions(t.Context(), "", Options{})
 	if err == nil || !strings.Contains(err.Error(), "nope") {
 		t.Fatalf("err = %v", err)
 	}
-	if _, err := (GogAdapter{Binary: filepath.Join(dir, "missing")}).ListContacts(t.Context(), ""); err == nil {
+	if _, err := (GogAdapter{Binary: filepath.Join(dir, "missing")}).ListContactsWithOptions(t.Context(), "", Options{}); err == nil {
 		t.Fatal("expected missing binary error")
 	}
 }
 
 func TestParseGogContactsRejectsInvalidJSON(t *testing.T) {
-	if _, err := parseGogContacts([]byte(`{`)); err == nil || !strings.Contains(err.Error(), "unexpected") {
+	if _, _, err := parseGogContactsPage([]byte(`{`)); err == nil || !strings.Contains(err.Error(), "unexpected") {
 		t.Fatalf("err = %v", err)
 	}
 	var p gogPerson

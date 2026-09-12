@@ -220,13 +220,18 @@ func TestRootedMissingAndDestinationTypeErrors(t *testing.T) {
 	if err := AtomicWriteFile(root, filepath.Join("parent-file", "child"), nil, 0o600); err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Fatalf("file parent error = %v", err)
 	}
-	if err := ValidateWrite(root, filepath.Join("missing-parent", "child")); err == nil {
+	opened, err := os.OpenRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = opened.Close() })
+	if err := ValidateWriteRoot(opened, filepath.Join("missing-parent", "child")); err == nil {
 		t.Fatal("expected missing parent validation error")
 	}
-	if err := ValidateWrite(root, "missing-leaf"); err != nil {
+	if err := ValidateWriteRoot(opened, "missing-leaf"); err != nil {
 		t.Fatalf("missing leaf validation = %v", err)
 	}
-	if err := ValidateWrite(root, "directory"); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+	if err := ValidateWriteRoot(opened, "directory"); err == nil || !strings.Contains(err.Error(), "not a regular file") {
 		t.Fatalf("directory validation error = %v", err)
 	}
 }

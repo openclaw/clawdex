@@ -105,7 +105,7 @@ func TestImportedAvatarGuardClauses(t *testing.T) {
 	if problems := Validate(dir, model.Person{Path: filepath.Join(dir, "person.md"), Avatar: model.AvatarRef{Path: "../x"}}); len(problems) != 1 {
 		t.Fatalf("expected escaped path problem, got %#v", problems)
 	}
-	if _, err := InspectFile(filepath.Join(dir, "missing.png")); err == nil {
+	if _, err := inspectRootedFile(dir, "missing.png"); err == nil {
 		t.Fatal("expected missing inspect error")
 	}
 	if _, err := SetManual(dir, person, filepath.Join(dir, "missing.png"), time.Now()); err == nil {
@@ -214,8 +214,8 @@ func TestSetManualRejectsOversizeSource(t *testing.T) {
 	if _, err := ValidateManual(dir, person, src); err == nil || !strings.Contains(err.Error(), "too large") {
 		t.Fatalf("ValidateManual oversize err = %v", err)
 	}
-	if _, err := InspectFile(src); err == nil || !strings.Contains(err.Error(), "too large") {
-		t.Fatalf("InspectFile oversize err = %v", err)
+	if _, err := inspectRootedFile(dir, "huge.bin"); err == nil || !strings.Contains(err.Error(), "too large") {
+		t.Fatalf("rooted inspection oversize err = %v", err)
 	}
 }
 
@@ -248,7 +248,7 @@ func TestManualAvatarRejectsSymlinkSourceLeafAndParent(t *testing.T) {
 	if _, err := ValidateManual(root, person, parentSource); err == nil || !strings.Contains(err.Error(), "symbolic link") {
 		t.Fatalf("parent preview error = %v", err)
 	}
-	if _, err := InspectFile(leaf); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+	if _, err := inspectRootedFile(root, "leaf.png"); err == nil || !strings.Contains(err.Error(), "symbolic link") {
 		t.Fatalf("inspect leaf error = %v", err)
 	}
 }

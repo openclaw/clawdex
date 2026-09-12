@@ -19,10 +19,6 @@ type Options struct {
 	RepoRoot       string
 }
 
-func Write(w io.Writer, people []model.Person) error {
-	return WriteWithOptions(w, people, Options{})
-}
-
 func WriteWithOptions(w io.Writer, people []model.Person, opts Options) error {
 	for _, p := range people {
 		if err := writeOne(w, p, opts); err != nil {
