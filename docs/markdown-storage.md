@@ -27,7 +27,8 @@ tomorrow, you would still have your data, in plaintext, in a Git repo.
     repairs/                             # backups written by `doctor --repair`
 ```
 
-Slugs are derived from the person's name and are stable: renaming a person
+Directory slugs are derived from the person's name. IDs are separate
+`person_<UUID>` values stored in frontmatter. Renaming a person
 in `person.md` updates the display name but keeps the folder path. To
 rename the slug itself, move the folder by hand and re-run
 [`clawdex doctor`](doctor.md).
@@ -36,18 +37,18 @@ rename the slug itself, move the folder by hand and re-run
 
 ```markdown
 ---
-id: sally-o-malley
+id: person_01234567-89ab-4cde-8f01-23456789abcd
 name: Sally O'Malley
 emails:
   - value: sally@example.com
-    kind: work
+    label: work
 phones:
   - value: "+15550100"
-    kind: mobile
+    label: mobile
 tags: [friend, dinner-club]
 accounts:
-  x: { handle: sally }
-  discord: { id: "234234234234234234", username: "sally" }
+  x: ["@sally"]
+  discord: ["user:234234234234234234"]
 created_at: 2026-05-08T09:15:00Z
 updated_at: 2026-05-08T09:15:00Z
 avatar:
@@ -67,8 +68,8 @@ back to a best-effort scalar salvage and copies the original file under
 `.clawdex/repairs/` before writing anything new. See
 [Doctor](doctor.md).
 
-The Markdown body is preserved verbatim across reads, edits, and repair.
-Your hand-written prose is safe.
+Markdown prose is retained; serialization normalizes CRLF line endings,
+removes leading blank lines, and adds a final newline.
 
 ## Note files
 
@@ -76,11 +77,12 @@ Notes are timestamped markdown files under `notes/`:
 
 ```markdown
 ---
-id: 2026-05-08T09-15-00Z-whatsapp
+id: note_01234567-89ab-4cde-8f01-23456789abcd
+person_id: person_01234567-89ab-4cde-8f01-23456789abcd
 kind: dm
 source: whatsapp
 occurred_at: 2026-05-08T09:15:00Z
-created_at: 2026-05-08T09:15:00Z
+captured_at: 2026-05-08T09:15:00Z
 topics: [dinner, logistics]
 ---
 
@@ -88,7 +90,7 @@ Follow up about dinner next Thursday.
 ```
 
 The filename encodes `occurred_at` as `2006-01-02T15-04-05Z` plus the
-source. Sorting by filename and sorting by `occurred_at` produce the same
+note kind. Sorting by filename and sorting by `occurred_at` produce the same
 order, which is intentional — `ls notes/` is a serviceable timeline.
 
 See [Notes](notes.md) and [Timeline](timeline.md).
@@ -101,27 +103,25 @@ See [Notes](notes.md) and [Timeline](timeline.md).
 - `phones.json` — normalized phone → person ID
 - `handles.json` — service handle (X, Discord, …) → person ID
 
-Clawdex rebuilds these on read whenever they're stale. They are safe to
-delete — the next command will regenerate them. They are *not* the source
-of truth: markdown is.
+Person creation and completed imports rebuild these files. Reads and search
+load Markdown directly, so deleting an index does not prevent lookup. The
+next person creation or import regenerates it.
 
 ## clawdex.toml
 
 A small repo-local config file written by `clawdex init`:
 
 ```toml
+version = 1
+
 [git]
 remote = "https://github.com/you/backup-clawdex.git"
 branch = "main"
-
-[repair]
-backup_before_repair = true
-auto_repair = false
 ```
 
-This is *separate* from the user-level config at `~/.clawdex/config.toml`,
-which holds your default repo path, default Google account, and editor
-preferences. See [Config](config.md).
+The Git section is omitted without a configured remote. This file is not
+loaded as configuration: active settings live in `~/.clawdex/config.toml`.
+See [Config](config.md).
 
 ## Why markdown
 

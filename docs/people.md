@@ -20,7 +20,7 @@ Flags:
 - `--phone`, `-p` — repeatable
 - `--tag`, `-t` — repeatable
 
-`--dry-run` previews the planned slug without writing anything.
+`--dry-run` previews the requested name without writing anything.
 
 ## List
 
@@ -39,11 +39,12 @@ output is a TSV of `id<TAB>name<TAB>first-email`.
 clawdex person show sally
 clawdex person show sally@example.com
 clawdex person show "+15550100"
-clawdex person show sally-o-malley   # exact ID
+clawdex person show person_01234567-89ab-4cde-8f01-23456789abcd  # exact ID
 ```
 
-`show` accepts an ID, a substring of the name, an email, or a phone number.
-The first unambiguous match wins. If multiple people share a key, the
+`show` accepts a stable `person_<UUID>` ID, a name or name slug, an email,
+or a phone number. An exact ID takes precedence; otherwise the match must
+be unambiguous. If multiple people share a key, the
 command errors and asks you to be more specific.
 
 ## Edit
@@ -62,7 +63,7 @@ in a pull request review. The file is plain markdown:
 
 ```markdown
 ---
-id: sally-o-malley
+id: person_01234567-89ab-4cde-8f01-23456789abcd
 name: Sally O'Malley
 emails:
   - value: sally@example.com

@@ -44,7 +44,7 @@ repair pass:
 
 1. Salvages known scalar keys: `id`, `name`, `created_at`, and the note
    fields (`kind`, `source`, `occurred_at`, `topics`).
-2. Infers a missing `id` from the file path and a missing
+2. Generates a missing UUID-based `id` and infers missing
    `created_at`/`updated_at` from the file mtime.
 3. Preserves the Markdown body verbatim.
 4. Copies the original damaged file under `.clawdex/repairs/` so nothing
@@ -90,8 +90,9 @@ the numbers should drop to zero on the next clean `clawdex doctor`.
 - After a hand-edit binge.
 - As the last step before `clawdex git commit && clawdex git push`.
 
-`clawdex doctor` is read-only. `clawdex doctor --repair` is the only
-variant that writes; it always backs up the original file first when
+Ordinary reads, including `doctor`, can repair person frontmatter when
+`repair.auto_repair = true` (the default). Use `--dry-run` to disable writes
+for a run. Repairs back up the original file when
 `repair.backup_before_repair = true` (the default).
 
 ## Exit codes

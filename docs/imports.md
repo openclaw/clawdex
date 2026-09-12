@@ -101,8 +101,8 @@ SQLite archive. For each DM thread above the `--min-messages` threshold,
 clawdex creates or updates a person, stores the X handle as a stable
 pointer under `accounts.x`, and adds a source-specific tag.
 
-The default DB path is `~/.birdclaw/birdclaw.sqlite`. Threads with fewer
-than `--min-messages` messages are skipped — most of those are one-shot
+The default DB path is `~/.birdclaw/birdclaw.sqlite`. Threads with at most
+`--min-messages` messages are skipped — most of those are one-shot
 spam or intros that died.
 
 ## Discrawl — Discord DMs

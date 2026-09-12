@@ -51,11 +51,12 @@ full body.
 
 ```markdown
 ---
-id: 2026-05-08T09-15-00Z-whatsapp
+id: note_01234567-89ab-4cde-8f01-23456789abcd
+person_id: person_01234567-89ab-4cde-8f01-23456789abcd
 kind: dm
 source: whatsapp
 occurred_at: 2026-05-08T09:15:00Z
-created_at: 2026-05-08T09:15:00Z
+captured_at: 2026-05-08T09:15:00Z
 topics: [dinner, logistics]
 ---
 
@@ -81,6 +82,6 @@ metadata* heading.
 ## Related pages
 
 - [People](people.md), [Timeline](timeline.md), [Search](search.md)
-- [Imports](imports.md) — birdclaw and discrawl create one note per imported
-  DM thread head.
+- [Imports](imports.md) — Birdclaw and Discrawl import contact pointers;
+  they do not copy message bodies or create notes.
 - [Markdown Storage](markdown-storage.md)

@@ -98,16 +98,16 @@ Google avatar limits are unchanged.
   [`Contacts.framework`](https://developer.apple.com/documentation/contacts)
   hands out. macOS-only.
 - **Google.** Calls `gog contacts raw --person-fields photos`, picks the
-  selected photo URL, fetches the bytes through
-  [`gog`](https://github.com/steipete/gogcli), and stores them locally.
-  Only metadata (URL, MIME, SHA256) is written into `person.md`.
+  selected photo URL, fetches the bytes over HTTP in Clawdex, and stores them locally.
+  The local path, source, MIME, SHA256, dimensions, and timestamp are
+  written into `person.md`; the remote URL is not persisted.
 
-In both cases the bytes live on your machine. Clawdex never silently
-re-fetches them on later runs.
+In both cases the bytes live on your machine. Later imports with
+`--avatars` may fetch them again; ordinary reads use the local files.
 
 ## vCard export
 
-Avatars are embedded into vCards as base64 `PHOTO;ENCODING=b` payloads when
+Avatars are embedded into vCards as base64 `PHOTO:data:<mime>;base64,...` URIs when
 you opt in:
 
 ```bash

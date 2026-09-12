@@ -19,8 +19,10 @@ clawdex search dinner
 clawdex export vcard --all --include-avatars -o contacts.vcf
 ```
 
-`--json` produces a stable JSON envelope on stdout. `--plain` produces TSV.
-Human messages go to stderr, so pipes stay parseable.
+Structured commands support `--json` objects or arrays on stdout.
+`git status`, `export vcard -o -`, and `person avatar show --path` keep their
+native text output even with `--json`. `--plain` provides stable text output.
+Diagnostics go to stderr.
 
 ## What clawdex does
 

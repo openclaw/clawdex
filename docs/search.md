@@ -67,10 +67,9 @@ index/
   handles.json
 ```
 
-These are rebuilt automatically as the markdown changes. They are
-*derivable*, not authoritative — delete the folder and clawdex regenerates
-it on the next read. Markdown is canonical; see
-[Markdown Storage](markdown-storage.md).
+Person creation and imports rebuild these derived files. Search reads
+Markdown directly and does not depend on the indexes being present or
+current. See [Markdown Storage](markdown-storage.md).
 
 ## Related pages
 

@@ -15,7 +15,7 @@ clawdex export vcard --all --include-avatars -o contacts.vcf
 ```
 
 Without `--include-avatars`, the file is text-only and small. With it, each
-person's avatar is embedded as a base64 `PHOTO;ENCODING=b` payload. A few
+person's avatar is embedded as a base64 `PHOTO:data:<mime>;base64,...` URI. A few
 hundred avatars adds up — expect a few megabytes.
 
 Clawdex resolves avatar files within the contacts repo, rejects symlink
@@ -54,28 +54,20 @@ Each vCard includes:
 
 - `FN` — display name from `person.md`
 - `N` — best-effort surname/given split
-- `EMAIL` per email entry, with the original `kind` as a `TYPE` parameter
+- `EMAIL` per email entry, with the original `label` as a `TYPE` parameter
   when present
-- `TEL` per phone entry, with the original `kind` as a `TYPE` parameter
-- `NOTE` — short summary from the person body, when present
-- `PHOTO;ENCODING=b` — only when `--include-avatars` is set
-- `UID` — the person's stable ID slug, so re-imports update existing
-  cards instead of duplicating
+- `TEL` per phone entry, with the original `label` as a `TYPE` parameter
+- `NOTE` — the `clawdex:<person ID>` marker; private Markdown prose and notes
+  are not exported
+- `PHOTO` — a data URI, only when `--include-avatars` is set
+- `UID` — the person's stable `person_<UUID>` ID
 
 ## Round-tripping
 
-Apple Contacts and Google Contacts both treat repeated `UID` as an update
-trigger. That means you can:
-
-1. Import from Apple → markdown.
-2. Edit names / emails / tags in markdown.
-3. `clawdex export vcard --all -o contacts.vcf`.
-4. Drag the `.vcf` into Apple Contacts → it updates existing cards in
-   place.
-
-This is the closest thing clawdex has to two-way sync today, and it works
-because vCard files are dumb, well-understood text. Programmatic
-[Sync](imports.md#sync-preview-only) is still preview-only.
+The UID remains stable across exports, but duplicate handling belongs to the
+receiving address book. Preview its import behavior before importing a large
+file; Clawdex does not guarantee that an importer updates existing cards.
+Programmatic [Sync](imports.md#sync-preview-only) remains preview-only.
 
 ## Related pages
 
