@@ -30,6 +30,9 @@ clawdex person list --query sally
 clawdex person list --json | jq '.[].name'
 ```
 
+An unreadable `person.md` produces an error instead of silently hiding that
+person. Directories without a person file are ignored.
+
 `--query` filters by substring match against name, ID, and tags. The default
 output is a TSV of `id<TAB>name<TAB>first-email`.
 

@@ -4,6 +4,8 @@
 
 - Preserved custom person/note frontmatter during writes, persisted missing person identities through repair, and prevented repeated repairs from overwriting earlier backup originals.
 
+- Fixed phone searches to match normalized numbers and stopped silently omitting unreadable person files from listings and imports.
+
 - Fixed Google imports rejecting empty contact pages, and made Birdclaw/Discrawl source reads consistently read-only with literal database paths so dry runs cannot create missing archives.
 
 - Updated the YAML parser to the maintained YAML organization v3 release and refreshed documentation renderer dependencies, preserving Go 1.26.8 and the existing macOS baseline.

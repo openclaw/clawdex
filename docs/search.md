@@ -32,7 +32,9 @@ snippet for the stable ID, which is friendlier to scripts.
 
 The query is a case-insensitive substring match against indexed fields.
 For phone numbers the search normalizes both the query and the stored
-value (strips spaces, dashes, parentheses, and a leading `+`), so any of
+value when the query contains only digits and phone punctuation (spaces,
+dashes, parentheses, periods, and `+`). It also normalizes the international
+`00` prefix. Text such as `ticket555` stays a text query. Any of
 these find Sally:
 
 ```bash

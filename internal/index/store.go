@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/openclaw/clawdex/internal/markdown"
 	"github.com/openclaw/clawdex/internal/model"
@@ -60,10 +61,10 @@ func (s Store) People() ([]model.Person, error) {
 			continue
 		}
 		path := filepath.Join(s.Repo.PeopleDir(), entry.Name(), "person.md")
-		if _, err := os.Stat(path); err != nil {
+		p, report, err := markdown.ReadPerson(path)
+		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
-		p, report, err := markdown.ReadPerson(path)
 		if err != nil {
 			return nil, err
 		}
@@ -203,10 +204,17 @@ func (s Store) Search(query string) ([]model.SearchHit, error) {
 	if err != nil {
 		return nil, err
 	}
+	phoneQuery := phoneSearchQuery(query)
 	var hits []model.SearchHit
 	for _, p := range people {
 		text := personSearchText(p)
-		if score := scoreText(text, query); score > 0 {
+		score := scoreText(text, query)
+		if phoneQuery != "" {
+			for _, phone := range p.Phones {
+				score = max(score, strings.Count(model.NormalizePhone(phone.Value), phoneQuery))
+			}
+		}
+		if score > 0 {
 			hits = append(hits, model.SearchHit{Kind: "person", ID: p.ID, Name: p.Name, Path: p.Path, Score: score, Snippet: p.Name})
 		}
 		notes, err := s.notesForPerson(p)
@@ -341,6 +349,16 @@ func personSearchText(p model.Person) string {
 		parts = append(parts, values...)
 	}
 	return strings.ToLower(strings.Join(parts, " "))
+}
+
+func phoneSearchQuery(query string) string {
+	for _, r := range query {
+		if r >= '0' && r <= '9' || unicode.IsSpace(r) || strings.ContainsRune("+()-.", r) {
+			continue
+		}
+		return ""
+	}
+	return model.NormalizePhone(query)
 }
 
 func scoreText(text, query string) int {
