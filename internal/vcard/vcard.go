@@ -90,7 +90,11 @@ func writeOne(w io.Writer, p model.Person, opts Options) error {
 		lines = append(lines, "TEL"+typeParam(phone.Label)+":"+escape(phone.Value))
 	}
 	if len(p.Tags) > 0 {
-		lines = append(lines, "CATEGORIES:"+escape(strings.Join(p.Tags, ",")))
+		categories := make([]string, len(p.Tags))
+		for i, tag := range p.Tags {
+			categories[i] = escape(tag)
+		}
+		lines = append(lines, "CATEGORIES:"+strings.Join(categories, ","))
 	}
 	if opts.IncludeAvatars && strings.TrimSpace(p.Avatar.Path) != "" {
 		photo, err := photoLine(p, opts.RepoRoot)
@@ -178,7 +182,7 @@ func escape(s string) string {
 }
 
 func folded(w io.Writer, line string) error {
-	const limit = 75
+	limit := 75
 	for len(line) > limit {
 		cut := limit
 		for cut > 0 && !utf8.ValidString(line[:cut]) {
@@ -191,6 +195,7 @@ func folded(w io.Writer, line string) error {
 			return err
 		}
 		line = line[cut:]
+		limit = 74 // Continuation whitespace counts toward the 75-octet limit.
 	}
 	_, err := fmt.Fprint(w, line+"\r\n")
 	return err

@@ -61,6 +61,10 @@ Each vCard includes:
   are not exported
 - `PHOTO` — a data URI, only when `--include-avatars` is set
 - `UID` — the person's stable `person_<UUID>` ID
+- `CATEGORIES` — individual tags, with punctuation escaped per tag
+
+Lines fold at 75 octets, including continuation whitespace, without splitting
+valid UTF-8 characters.
 
 ## Round-tripping
 

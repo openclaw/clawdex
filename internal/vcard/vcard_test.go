@@ -351,7 +351,7 @@ func TestWriteSkipsEmptyValuesAndEmptyList(t *testing.T) {
 	if err := WriteWithOptions(&buf, []model.Person{{ID: "p", Name: "Solo", Emails: []model.ContactValue{{}}, Phones: []model.ContactValue{{}}, Tags: []string{"one", "two"}}}, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(buf.String(), "EMAIL") || strings.Contains(buf.String(), "TEL") || !strings.Contains(buf.String(), "CATEGORIES:one\\,two") {
+	if strings.Contains(buf.String(), "EMAIL") || strings.Contains(buf.String(), "TEL") || !strings.Contains(buf.String(), "CATEGORIES:one,two") {
 		t.Fatalf("vcard = %s", buf.String())
 	}
 }
@@ -359,3 +359,32 @@ func TestWriteSkipsEmptyValuesAndEmptyList(t *testing.T) {
 type errWriter struct{}
 
 func (errWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
+func TestCategoriesEscapeEachValue(t *testing.T) {
+	var out bytes.Buffer
+	p := model.Person{ID: "p", Name: "Ada", Tags: []string{"friend", "work, east", "semi;colon", `slash\`}}
+	if err := WriteWithOptions(&out, []model.Person{p}, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	want := `CATEGORIES:friend,work\, east,semi\;colon,slash\\` + "\r\n"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("categories = %q, want %q", out.String(), want)
+	}
+}
+
+func TestFoldedPhysicalLinesFitOctetLimit(t *testing.T) {
+	for _, line := range []string{strings.Repeat("a", 75), strings.Repeat("a", 76), strings.Repeat("a", 150), strings.Repeat("a", 300), strings.Repeat("世", 100)} {
+		var out bytes.Buffer
+		if err := folded(&out, line); err != nil {
+			t.Fatal(err)
+		}
+		for physical := range strings.SplitSeq(strings.TrimSuffix(out.String(), "\r\n"), "\r\n") {
+			if len(physical) > 75 {
+				t.Errorf("physical line has %d octets: %q", len(physical), physical)
+			}
+		}
+		if got := strings.ReplaceAll(strings.TrimSuffix(out.String(), "\r\n"), "\r\n ", ""); got != line {
+			t.Fatalf("unfolded changed: %q", got)
+		}
+	}
+}
