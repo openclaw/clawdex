@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const viewer = fs.readFileSync(new URL("./site.js", import.meta.url), "utf8");
 const expected = new Map([
   ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-light.min.css", "sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5"],
   ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-dark.min.css", "sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07"],
@@ -41,9 +42,10 @@ test("has no unhashed external scripts or stylesheets", () => {
 });
 
 test("fails closed when renderer dependencies are unavailable", () => {
-  assert.match(html, /const missing = \["marked", "hljs", "DOMPurify"\]/);
-  assert.match(html, /paragraph\.textContent = message/);
-  assert.doesNotMatch(html, /window\.DOMPurify\s*\?/);
-  assert.match(html, /DOMPurify\.sanitize\(marked\.parse\(md\)/);
-  assert.equal([...html.matchAll(/article\.innerHTML/g)].length, 1);
+  assert.ok(html.includes('<script src="scripts/site.js"></script>'));
+  assert.match(viewer, /const missing = \["marked", "hljs", "DOMPurify"\]/);
+  assert.match(viewer, /paragraph\.textContent = message/);
+  assert.doesNotMatch(viewer, /window\.DOMPurify\s*\?/);
+  assert.match(viewer, /DOMPurify\.sanitize\(marked\.parse\(md\)/);
+  assert.equal([...viewer.matchAll(/article\.innerHTML/g)].length, 1);
 });

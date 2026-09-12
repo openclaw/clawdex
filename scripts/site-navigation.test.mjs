@@ -3,8 +3,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 
-const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
+const script = fs.readFileSync(new URL("./site.js", import.meta.url), "utf8");
 
 function deferred() {
   let resolve, reject;
