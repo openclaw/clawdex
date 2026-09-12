@@ -721,7 +721,7 @@ func TestImportTagsAccountsAndExactNameMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !stringIn(p.Tags, "friend") {
+	if !slices.Contains(p.Tags, "friend") {
 		t.Fatalf("tags = %#v", p.Tags)
 	}
 }
@@ -939,8 +939,4 @@ func writeTestPNG(t *testing.T, path string) {
 	if err := png.Encode(f, img); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func stringIn(values []string, want string) bool {
-	return slices.Contains(values, want)
 }

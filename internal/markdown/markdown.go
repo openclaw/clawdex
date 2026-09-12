@@ -76,7 +76,7 @@ func ReadPerson(path string) (model.Person, RepairReport, error) {
 func WritePerson(path string, p model.Person) error {
 	inferPerson(&p, path)
 	p.UpdatedAt = p.UpdatedAt.UTC()
-	front, err := yaml.Marshal(personFrontmatter(p))
+	front, err := yaml.Marshal(p)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func ReadNote(path string) (model.Note, RepairReport, error) {
 
 func WriteNote(path string, n model.Note) error {
 	inferNote(&n, path)
-	front, err := yaml.Marshal(noteFrontmatter(n))
+	front, err := yaml.Marshal(n)
 	if err != nil {
 		return err
 	}
@@ -209,109 +209,6 @@ func inferNote(n *model.Note, path string) {
 	if n.Privacy == "" {
 		n.Privacy = "normal"
 	}
-}
-
-type personFront struct {
-	ID        string                        `yaml:"id"`
-	Name      string                        `yaml:"name"`
-	SortName  string                        `yaml:"sort_name,omitempty"`
-	Tags      []string                      `yaml:"tags,omitempty"`
-	Emails    []model.ContactValue          `yaml:"emails,omitempty"`
-	Phones    []model.ContactValue          `yaml:"phones,omitempty"`
-	Avatar    *model.AvatarRef              `yaml:"avatar,omitempty"`
-	Accounts  map[string][]string           `yaml:"accounts,omitempty"`
-	Sources   map[string]model.PersonSource `yaml:"sources,omitempty"`
-	Apple     *model.ExternalRef            `yaml:"apple,omitempty"`
-	Google    *model.ExternalRef            `yaml:"google,omitempty"`
-	CreatedAt time.Time                     `yaml:"created_at"`
-	UpdatedAt time.Time                     `yaml:"updated_at"`
-}
-
-func personFrontmatter(p model.Person) personFront {
-	return personFront{
-		ID:        p.ID,
-		Name:      p.Name,
-		SortName:  p.SortName,
-		Tags:      p.Tags,
-		Emails:    p.Emails,
-		Phones:    p.Phones,
-		Avatar:    nonEmptyAvatar(p.Avatar),
-		Accounts:  nonEmptyAccounts(p.Accounts),
-		Sources:   nonEmptySources(p.Sources),
-		Apple:     nonEmptyExternal(p.Apple),
-		Google:    nonEmptyExternal(p.Google),
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-	}
-}
-
-type noteFront struct {
-	ID         string     `yaml:"id"`
-	PersonID   string     `yaml:"person_id"`
-	OccurredAt time.Time  `yaml:"occurred_at"`
-	CapturedAt time.Time  `yaml:"captured_at"`
-	Kind       string     `yaml:"kind"`
-	Source     string     `yaml:"source"`
-	Account    string     `yaml:"account,omitempty"`
-	ExternalID string     `yaml:"external_id,omitempty"`
-	Direction  string     `yaml:"direction,omitempty"`
-	Confidence string     `yaml:"confidence,omitempty"`
-	Topics     []string   `yaml:"topics,omitempty"`
-	FollowUpAt *time.Time `yaml:"follow_up_at,omitempty"`
-	Privacy    string     `yaml:"privacy,omitempty"`
-}
-
-func noteFrontmatter(n model.Note) noteFront {
-	return noteFront{
-		ID:         n.ID,
-		PersonID:   n.PersonID,
-		OccurredAt: n.OccurredAt,
-		CapturedAt: n.CapturedAt,
-		Kind:       n.Kind,
-		Source:     n.Source,
-		Account:    n.Account,
-		ExternalID: n.ExternalID,
-		Direction:  n.Direction,
-		Confidence: n.Confidence,
-		Topics:     n.Topics,
-		FollowUpAt: nonZeroTime(n.FollowUpAt),
-		Privacy:    n.Privacy,
-	}
-}
-
-func nonEmptyAvatar(ref model.AvatarRef) *model.AvatarRef {
-	if ref.Path == "" && ref.Source == "" && ref.MIME == "" && ref.SHA256 == "" && ref.Width == 0 && ref.Height == 0 && ref.UpdatedAt.IsZero() {
-		return nil
-	}
-	return &ref
-}
-
-func nonEmptyExternal(ref model.ExternalRef) *model.ExternalRef {
-	if ref.ID == "" && ref.Resource == "" && ref.ETag == "" && ref.LastSeenAt.IsZero() {
-		return nil
-	}
-	return &ref
-}
-
-func nonEmptyAccounts(accounts map[string][]string) map[string][]string {
-	if len(accounts) == 0 {
-		return nil
-	}
-	return accounts
-}
-
-func nonEmptySources(sources map[string]model.PersonSource) map[string]model.PersonSource {
-	if len(sources) == 0 {
-		return nil
-	}
-	return sources
-}
-
-func nonZeroTime(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	return &t
 }
 
 func nameFromBody(body string) string {

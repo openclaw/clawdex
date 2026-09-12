@@ -1,12 +1,13 @@
 package index
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -73,8 +74,8 @@ func (s Store) People() ([]model.Person, error) {
 		}
 		people = append(people, p)
 	}
-	sort.Slice(people, func(i, j int) bool {
-		return strings.ToLower(people[i].Name) < strings.ToLower(people[j].Name)
+	slices.SortFunc(people, func(a, b model.Person) int {
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
 	})
 	return people, nil
 }
@@ -187,8 +188,8 @@ func (s Store) notesForPerson(p model.Person) ([]model.Note, error) {
 		}
 		notes = append(notes, n)
 	}
-	sort.Slice(notes, func(i, j int) bool {
-		return notes[i].OccurredAt.Before(notes[j].OccurredAt)
+	slices.SortFunc(notes, func(a, b model.Note) int {
+		return a.OccurredAt.Compare(b.OccurredAt)
 	})
 	return notes, nil
 }
@@ -219,11 +220,11 @@ func (s Store) Search(query string) ([]model.SearchHit, error) {
 			}
 		}
 	}
-	sort.Slice(hits, func(i, j int) bool {
-		if hits[i].Score == hits[j].Score {
-			return hits[i].Path < hits[j].Path
+	slices.SortFunc(hits, func(a, b model.SearchHit) int {
+		if a.Score == b.Score {
+			return strings.Compare(a.Path, b.Path)
 		}
-		return hits[i].Score > hits[j].Score
+		return cmp.Compare(b.Score, a.Score)
 	})
 	return hits, nil
 }

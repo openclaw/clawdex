@@ -3,7 +3,7 @@ package index
 import (
 	"path/filepath"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -305,7 +305,7 @@ func appendMissingStrings(existing []string, incoming []string) []string {
 		existing = append(existing, value)
 		seen[key] = true
 	}
-	sort.Strings(existing)
+	slices.Sort(existing)
 	return existing
 }
 
@@ -332,10 +332,8 @@ func accountsEqual(a, b map[string][]string) bool {
 		if len(av) != len(bv) {
 			return false
 		}
-		for i := range av {
-			if av[i] != bv[i] {
-				return false
-			}
+		if !slices.Equal(av, bv) {
+			return false
 		}
 	}
 	return true
@@ -409,7 +407,7 @@ func appendMissingNormalizedStrings(existing []string, incoming []string, normal
 		existing = append(existing, value)
 		seen[key] = true
 	}
-	sort.Strings(existing)
+	slices.Sort(existing)
 	return existing
 }
 
