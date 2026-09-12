@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -161,5 +162,55 @@ func TestNoteRepairKeepsDistinctRecoveryPayloadsWithoutBackups(t *testing.T) {
 	}
 	if got := recoveredBody(body, "id: note_stable\ncustom: second\ntopics: [broken"); got != body {
 		t.Fatal("duplicate payload appended again")
+	}
+}
+
+func TestNoteOperationsRejectPathsOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "note.md")
+	original := "Synthetic outside note"
+	if err := os.WriteFile(outside, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadNote(root, outside); err == nil {
+		t.Error("read escaped root")
+	}
+	n := NewNote("p", "note", "manual", "replacement", time.Now(), time.Now(), nil)
+	if err := WriteNote(root, outside, n); err == nil {
+		t.Error("write escaped root")
+	}
+	for _, backup := range []bool{false, true} {
+		if err := RepairNote(root, outside, filepath.Join(root, "repairs"), n, RepairReport{Needed: true}, backup); err == nil {
+			t.Errorf("repair escaped root, backup=%v", backup)
+		}
+	}
+	data, err := os.ReadFile(outside)
+	if err != nil || string(data) != original {
+		t.Fatalf("outside changed: %q %v", data, err)
+	}
+}
+
+func TestFailedNoteBackupLeavesOriginalUntouched(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "note.md")
+	original := "---\nid: note_stable\ntopics: [broken\n---\nOriginal note\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n, report, err := ReadNote(root, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A regular file cannot serve as the backup directory, on every platform.
+	repairs := filepath.Join(root, "repairs")
+	if err := os.WriteFile(repairs, []byte("keep this file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RepairNote(root, path, repairs, n, report, true); err == nil {
+		t.Fatal("repair ignored backup failure")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != original {
+		t.Fatalf("original changed after failed backup: %q %v", data, err)
 	}
 }
