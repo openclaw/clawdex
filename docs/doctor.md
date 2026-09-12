@@ -39,7 +39,8 @@ Two classes of problem:
 ### 1. Damaged frontmatter
 
 If `person.md` or a note's YAML frontmatter is malformed — a stray quote,
-a truncated block, a dangling key — clawdex's strict parse fails. The
+a truncated block, a dangling key — clawdex's strict parse fails. Missing
+person IDs, names, or timestamps also require repair, even in valid YAML. The
 repair pass:
 
 1. Salvages known scalar keys: `id`, `name`, `created_at`, and the note
@@ -48,7 +49,8 @@ repair pass:
    `created_at`/`updated_at` from the file mtime.
 3. Preserves the Markdown body verbatim.
 4. Copies the original damaged file under `.clawdex/repairs/` so nothing
-   is lost.
+   is lost. Each repair gets a unique backup directory, including repairs in
+   the same second.
 5. Appends the unsalvageable scrap to the body under a `## Recovered
    metadata` heading, so you can finish the cleanup by hand.
 

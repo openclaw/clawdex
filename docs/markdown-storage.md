@@ -68,6 +68,10 @@ back to a best-effort scalar salvage and copies the original file under
 `.clawdex/repairs/` before writing anything new. See
 [Doctor](doctor.md).
 
+Unknown frontmatter fields, including nested mappings and lists, survive
+updates to people and notes. They remain in Markdown and are not added to
+CLI JSON output.
+
 Markdown prose is retained; serialization normalizes CRLF line endings,
 removes leading blank lines, and adds a final newline.
 

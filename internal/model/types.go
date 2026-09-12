@@ -33,40 +33,42 @@ type PersonSource struct {
 }
 
 type Person struct {
-	ID        string                    `json:"id" yaml:"id"`
-	Name      string                    `json:"name" yaml:"name"`
-	SortName  string                    `json:"sort_name,omitempty" yaml:"sort_name,omitempty"`
-	Tags      []string                  `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Emails    []ContactValue            `json:"emails,omitempty" yaml:"emails,omitempty"`
-	Phones    []ContactValue            `json:"phones,omitempty" yaml:"phones,omitempty"`
-	Avatar    AvatarRef                 `json:"avatar,omitzero" yaml:"avatar,omitempty"`
-	Accounts  map[string][]string       `json:"accounts,omitempty" yaml:"accounts,omitempty"`
-	Sources   map[string]PersonSource   `json:"sources,omitempty" yaml:"sources,omitempty"`
-	Apple     ExternalRef               `json:"apple,omitzero" yaml:"apple,omitempty"`
-	Google    ExternalRef               `json:"google,omitzero" yaml:"google,omitempty"`
-	CreatedAt time.Time                 `json:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time                 `json:"updated_at" yaml:"updated_at"`
-	Path      string                    `json:"path,omitempty" yaml:"-"`
-	Body      string                    `json:"body,omitempty" yaml:"-"`
-	Extra     map[string]map[string]any `json:"extra,omitempty" yaml:"-"`
+	ExtraFields map[string]any            `json:"-" yaml:",inline"`
+	ID          string                    `json:"id" yaml:"id"`
+	Name        string                    `json:"name" yaml:"name"`
+	SortName    string                    `json:"sort_name,omitempty" yaml:"sort_name,omitempty"`
+	Tags        []string                  `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Emails      []ContactValue            `json:"emails,omitempty" yaml:"emails,omitempty"`
+	Phones      []ContactValue            `json:"phones,omitempty" yaml:"phones,omitempty"`
+	Avatar      AvatarRef                 `json:"avatar,omitzero" yaml:"avatar,omitempty"`
+	Accounts    map[string][]string       `json:"accounts,omitempty" yaml:"accounts,omitempty"`
+	Sources     map[string]PersonSource   `json:"sources,omitempty" yaml:"sources,omitempty"`
+	Apple       ExternalRef               `json:"apple,omitzero" yaml:"apple,omitempty"`
+	Google      ExternalRef               `json:"google,omitzero" yaml:"google,omitempty"`
+	CreatedAt   time.Time                 `json:"created_at" yaml:"created_at"`
+	UpdatedAt   time.Time                 `json:"updated_at" yaml:"updated_at"`
+	Path        string                    `json:"path,omitempty" yaml:"-"`
+	Body        string                    `json:"body,omitempty" yaml:"-"`
+	Extra       map[string]map[string]any `json:"extra,omitempty" yaml:"-"`
 }
 
 type Note struct {
-	ID         string    `json:"id" yaml:"id"`
-	PersonID   string    `json:"person_id" yaml:"person_id"`
-	OccurredAt time.Time `json:"occurred_at" yaml:"occurred_at"`
-	CapturedAt time.Time `json:"captured_at" yaml:"captured_at"`
-	Kind       string    `json:"kind" yaml:"kind"`
-	Source     string    `json:"source" yaml:"source"`
-	Account    string    `json:"account,omitempty" yaml:"account,omitempty"`
-	ExternalID string    `json:"external_id,omitempty" yaml:"external_id,omitempty"`
-	Direction  string    `json:"direction,omitempty" yaml:"direction,omitempty"`
-	Confidence string    `json:"confidence,omitempty" yaml:"confidence,omitempty"`
-	Topics     []string  `json:"topics,omitempty" yaml:"topics,omitempty"`
-	FollowUpAt time.Time `json:"follow_up_at,omitzero" yaml:"follow_up_at,omitempty"`
-	Privacy    string    `json:"privacy,omitempty" yaml:"privacy,omitempty"`
-	Path       string    `json:"path,omitempty" yaml:"-"`
-	Body       string    `json:"body,omitempty" yaml:"-"`
+	ExtraFields map[string]any `json:"-" yaml:",inline"`
+	ID          string         `json:"id" yaml:"id"`
+	PersonID    string         `json:"person_id" yaml:"person_id"`
+	OccurredAt  time.Time      `json:"occurred_at" yaml:"occurred_at"`
+	CapturedAt  time.Time      `json:"captured_at" yaml:"captured_at"`
+	Kind        string         `json:"kind" yaml:"kind"`
+	Source      string         `json:"source" yaml:"source"`
+	Account     string         `json:"account,omitempty" yaml:"account,omitempty"`
+	ExternalID  string         `json:"external_id,omitempty" yaml:"external_id,omitempty"`
+	Direction   string         `json:"direction,omitempty" yaml:"direction,omitempty"`
+	Confidence  string         `json:"confidence,omitempty" yaml:"confidence,omitempty"`
+	Topics      []string       `json:"topics,omitempty" yaml:"topics,omitempty"`
+	FollowUpAt  time.Time      `json:"follow_up_at,omitzero" yaml:"follow_up_at,omitempty"`
+	Privacy     string         `json:"privacy,omitempty" yaml:"privacy,omitempty"`
+	Path        string         `json:"path,omitempty" yaml:"-"`
+	Body        string         `json:"body,omitempty" yaml:"-"`
 }
 
 type SearchHit struct {

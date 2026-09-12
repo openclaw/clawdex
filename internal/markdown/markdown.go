@@ -20,6 +20,13 @@ type RepairReport struct {
 	RecoveredMetadata string   `json:"recovered_metadata,omitempty"`
 }
 
+func (r *RepairReport) missing(field string, missing bool) {
+	if missing {
+		r.Needed = true
+		r.Problems = append(r.Problems, "missing "+field)
+	}
+}
+
 func NewPerson(name string, now time.Time) model.Person {
 	return model.Person{
 		ID:        "person_" + uuid.NewString(),
@@ -69,6 +76,10 @@ func ReadPerson(path string) (model.Person, RepairReport, error) {
 	}
 	p.Body = strings.TrimLeft(body, "\n")
 	p.Path = path
+	report.missing("id", p.ID == "")
+	report.missing("name", strings.TrimSpace(p.Name) == "")
+	report.missing("created_at", p.CreatedAt.IsZero())
+	report.missing("updated_at", p.UpdatedAt.IsZero())
 	inferPerson(&p, path)
 	return p, report, nil
 }
@@ -258,15 +269,27 @@ func backupOriginal(path, repairRoot string) error {
 	if err != nil {
 		return err
 	}
-	rel := repairBackupRel(path)
-	dest := filepath.Join(repairRoot, time.Now().UTC().Format("20060102T150405Z"), rel)
-	if !strings.HasPrefix(dest, filepath.Clean(repairRoot)+string(filepath.Separator)) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	rel := repairBackupRel(abs)
+	if err := os.MkdirAll(repairRoot, 0o755); err != nil {
+		return err
+	}
+	// Each repair owns a directory so concurrent or same-second backups cannot overwrite one another.
+	dir, err := os.MkdirTemp(repairRoot, time.Now().UTC().Format("20060102T150405Z")+"-*")
+	if err != nil {
+		return err
+	}
+	dest := filepath.Join(dir, rel)
+	if !strings.HasPrefix(dest, filepath.Clean(dir)+string(filepath.Separator)) {
 		return fmt.Errorf("repair backup escaped repair root: %s", dest)
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	// #nosec G703 -- dest is constrained to repairRoot above.
+	// #nosec G703 -- dest is constrained to the unique repair directory above.
 	return os.WriteFile(dest, data, 0o600)
 }
 
