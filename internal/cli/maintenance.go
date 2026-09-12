@@ -173,6 +173,7 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 	if c.Repair {
 		var repaired int
 		var avatarRepaired int
+		var notesRepaired int
 		for _, p := range people {
 			loaded, report, err := markdown.ReadPerson(p.Path)
 			if err != nil {
@@ -186,6 +187,11 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 					}
 				}
 			}
+			count, err := store.RepairNotes(loaded, r.root.DryRun)
+			if err != nil {
+				return err
+			}
+			notesRepaired += count
 			if len(avatar.Validate(r.repo.Path, loaded)) > 0 {
 				avatarRepaired++
 				if !r.root.DryRun {
@@ -198,6 +204,7 @@ func (c *DoctorCmd) Run(r *Runtime) error {
 		}
 		result["repaired"] = repaired
 		result["avatar_repaired"] = avatarRepaired
+		result["notes_repaired"] = notesRepaired
 		result["dry_run"] = r.root.DryRun
 	}
 	return r.print(result)

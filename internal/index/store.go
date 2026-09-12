@@ -15,6 +15,7 @@ import (
 	"github.com/openclaw/clawdex/internal/markdown"
 	"github.com/openclaw/clawdex/internal/model"
 	"github.com/openclaw/clawdex/internal/repo"
+	"github.com/openclaw/clawdex/internal/safefile"
 )
 
 type Store struct {
@@ -133,7 +134,7 @@ func (s Store) AddNote(personQuery string, note model.Note) (model.Note, error) 
 		return model.Note{}, err
 	}
 	note.Path = path
-	if err := markdown.WriteNote(path, note); err != nil {
+	if err := markdown.WriteNote(s.Repo.Path, path, note); err != nil {
 		return model.Note{}, err
 	}
 	return note, nil
@@ -167,32 +168,59 @@ func (s Store) Notes(personQuery string) ([]model.Note, error) {
 }
 
 func (s Store) notesForPerson(p model.Person) ([]model.Note, error) {
+	notes, _, err := s.loadNotes(p, s.Repo.Config.Repair.AutoRepair)
+	return notes, err
+}
+
+func (s Store) RepairNotes(p model.Person, dryRun bool) (int, error) {
+	_, needed, err := s.loadNotes(p, !dryRun)
+	return needed, err
+}
+
+func (s Store) loadNotes(p model.Person, repair bool) ([]model.Note, int, error) {
 	dir := filepath.Join(filepath.Dir(p.Path), "notes")
-	entries, err := os.ReadDir(dir)
+	relative, err := safefile.Relative(s.Repo.Path, dir)
+	if err != nil {
+		return nil, 0, err
+	}
+	_, err = safefile.ExistingPath(s.Repo.Path, relative)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return nil, 0, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, 0, err
+	}
+	needed := 0
 	notes := make([]model.Note, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
 			continue
 		}
-		n, _, err := markdown.ReadNote(filepath.Join(dir, entry.Name()))
+		n, report, err := markdown.ReadNote(s.Repo.Path, filepath.Join(dir, entry.Name()))
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if n.PersonID == "" {
 			n.PersonID = p.ID
+		}
+		if report.Needed {
+			needed++
+			if repair {
+				if err := markdown.RepairNote(s.Repo.Path, n.Path, s.Repo.RepairDir(), n, report, s.Repo.Config.Repair.BackupBeforeRepair); err != nil {
+					return nil, 0, err
+				}
+			}
 		}
 		notes = append(notes, n)
 	}
 	slices.SortFunc(notes, func(a, b model.Note) int {
 		return a.OccurredAt.Compare(b.OccurredAt)
 	})
-	return notes, nil
+	return notes, needed, nil
 }
 
 func (s Store) Search(query string) ([]model.SearchHit, error) {

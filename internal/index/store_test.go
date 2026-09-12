@@ -388,7 +388,7 @@ func TestAddNoteUniqueSuffixBeyond1000(t *testing.T) {
 			t.Fatalf("existing note %s changed: data=%q err=%v", path, data, err)
 		}
 	}
-	written, _, err := markdown.ReadNote(added.Path)
+	written, _, err := markdown.ReadNote(r.Path, added.Path)
 	if err != nil || strings.TrimSpace(written.Body) != n.Body {
 		t.Fatalf("new note body = %q, err=%v", written.Body, err)
 	}
@@ -852,7 +852,7 @@ func TestPeopleAndNotesForgivingBranches(t *testing.T) {
 	}
 	note := markdown.NewNote("", "note", "manual", "missing person id", time.Now(), time.Now(), nil)
 	note.PersonID = ""
-	if err := markdown.WriteNote(filepath.Join(notesDir, "2026-note.md"), note); err != nil {
+	if err := markdown.WriteNote(r.Path, filepath.Join(notesDir, "2026-note.md"), note); err != nil {
 		t.Fatal(err)
 	}
 	notes, err := s.Notes("Broken Person")

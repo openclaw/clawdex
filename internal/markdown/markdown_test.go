@@ -175,10 +175,10 @@ func TestNoteRoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "note.md")
 	now := time.Date(2026, 5, 8, 10, 0, 0, 0, time.UTC)
 	n := NewNote("person_1", "dm", "whatsapp", "hello", now, now, []string{"intro"})
-	if err := WriteNote(path, n); err != nil {
+	if err := WriteNote(dir, path, n); err != nil {
 		t.Fatal(err)
 	}
-	got, report, err := ReadNote(path)
+	got, report, err := ReadNote(dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestReadNoteRepairAndDefaults(t *testing.T) {
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	n, report, err := ReadNote(path)
+	n, report, err := ReadNote(dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +248,7 @@ func TestMoreRepairAndNoteBranches(t *testing.T) {
 	if err := os.WriteFile(path, []byte("body only"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	n, report, err := ReadNote(path)
+	n, report, err := ReadNote(dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestMoreRepairAndNoteBranches(t *testing.T) {
 	}
 	now := time.Now().UTC()
 	n.FollowUpAt = now
-	if err := WriteNote(path, n); err != nil {
+	if err := WriteNote(dir, path, n); err != nil {
 		t.Fatal(err)
 	}
 	if err := RepairPerson(path, filepath.Join(dir, "repairs"), modelPersonForTest(), RepairReport{}, true); err != nil {

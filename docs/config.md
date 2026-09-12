@@ -24,7 +24,7 @@ enabled = true
 ```
 
 The remote defaults to empty: local use needs no backup service. Automatic
-person-frontmatter repair and original-file backups are enabled by default.
+person and note frontmatter repair and original-file backups are enabled by default.
 
 `init` also writes `<repo>/clawdex.toml`: a version marker, plus Git settings
 when a remote is configured. This file is descriptive; commands currently

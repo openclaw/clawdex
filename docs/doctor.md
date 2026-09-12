@@ -40,7 +40,8 @@ Two classes of problem:
 
 If `person.md` or a note's YAML frontmatter is malformed — a stray quote,
 a truncated block, a dangling key — clawdex's strict parse fails. Missing
-person IDs, names, or timestamps also require repair, even in valid YAML. The
+person IDs, names, or timestamps and missing note IDs, person IDs, timestamps,
+kinds, or sources also require repair, even in valid YAML. The
 repair pass:
 
 1. Salvages known scalar keys: `id`, `name`, `created_at`, and the note
@@ -78,9 +79,14 @@ automatic frontmatter repair for the run. The output includes:
 
 ```text
 repaired: 4
+notes_repaired: 3
 avatar_repaired: 2
 dry_run: true
 ```
+
+`repaired` counts person files; `notes_repaired` counts note files. Missing
+note ownership is filled from the containing person. The backup policy applies
+to both file types.
 
 Treat the counts as the worst case — once you re-run without `--dry-run`,
 the numbers should drop to zero on the next clean `clawdex doctor`.
@@ -92,7 +98,8 @@ the numbers should drop to zero on the next clean `clawdex doctor`.
 - After a hand-edit binge.
 - As the last step before `clawdex git commit && clawdex git push`.
 
-Ordinary reads, including `doctor`, can repair person frontmatter when
+Ordinary person reads (including `doctor`) and note reads can repair
+frontmatter when
 `repair.auto_repair = true` (the default). Use `--dry-run` to disable writes
 for a run. Repairs back up the original file when
 `repair.backup_before_repair = true` (the default).

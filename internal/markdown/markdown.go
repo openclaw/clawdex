@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openclaw/clawdex/internal/model"
+	"github.com/openclaw/clawdex/internal/safefile"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -107,14 +108,57 @@ func RepairPerson(path, repairRoot string, p model.Person, report RepairReport, 
 			return err
 		}
 	}
-	if report.RecoveredMetadata != "" && !strings.Contains(p.Body, "## Recovered metadata") {
-		p.Body = strings.TrimRight(p.Body, "\n") + "\n\n## Recovered metadata\n\n```yaml\n" + strings.TrimSpace(report.RecoveredMetadata) + "\n```\n"
-	}
+	p.Body = recoveredBody(p.Body, report.RecoveredMetadata)
 	return WritePerson(path, p)
 }
 
-func ReadNote(path string) (model.Note, RepairReport, error) {
-	data, err := os.ReadFile(path)
+func recoveredBody(body, metadata string) string {
+	if metadata == "" {
+		return body
+	}
+	block := "```yaml\n" + strings.TrimSpace(metadata) + "\n```"
+	if strings.Contains(body, block) {
+		return body
+	}
+	return strings.TrimRight(body, "\n") + "\n\n## Recovered metadata\n\n" + block + "\n"
+}
+
+func RepairNote(root, path, repairRoot string, n model.Note, report RepairReport, backup bool) error {
+	if !report.Needed {
+		return nil
+	}
+	if backup {
+		relative, err := safefile.Relative(root, path)
+		if err != nil {
+			return err
+		}
+		original, err := safefile.ReadFile(root, relative)
+		if err != nil {
+			return err
+		}
+		repairRelative, err := safefile.Relative(root, repairRoot)
+		if err != nil {
+			return err
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		destination := filepath.Join(repairRelative, time.Now().UTC().Format("20060102T150405Z")+"-"+uuid.NewString(), repairBackupRel(abs))
+		if err := safefile.AtomicWriteFile(root, destination, original, 0o600); err != nil {
+			return err
+		}
+	}
+	n.Body = recoveredBody(n.Body, report.RecoveredMetadata)
+	return WriteNote(root, path, n)
+}
+
+func ReadNote(root, path string) (model.Note, RepairReport, error) {
+	relative, err := safefile.Relative(root, path)
+	if err != nil {
+		return model.Note{}, RepairReport{}, err
+	}
+	data, err := safefile.ReadFile(root, relative)
 	if err != nil {
 		return model.Note{}, RepairReport{}, err
 	}
@@ -135,17 +179,27 @@ func ReadNote(path string) (model.Note, RepairReport, error) {
 	}
 	n.Body = strings.TrimLeft(body, "\n")
 	n.Path = path
+	report.missing("id", n.ID == "")
+	report.missing("person_id", n.PersonID == "")
+	report.missing("occurred_at", n.OccurredAt.IsZero())
+	report.missing("captured_at", n.CapturedAt.IsZero())
+	report.missing("kind", n.Kind == "")
+	report.missing("source", n.Source == "")
 	inferNote(&n, path)
 	return n, report, nil
 }
 
-func WriteNote(path string, n model.Note) error {
+func WriteNote(root, path string, n model.Note) error {
+	relative, err := safefile.Relative(root, path)
+	if err != nil {
+		return err
+	}
 	inferNote(&n, path)
 	front, err := yaml.Marshal(n)
 	if err != nil {
 		return err
 	}
-	return atomicWrite(path, appendFrontmatter(front, strings.TrimLeft(n.Body, "\n")), 0o600)
+	return safefile.AtomicWriteFile(root, relative, appendFrontmatter(front, strings.TrimLeft(n.Body, "\n")), 0o600)
 }
 
 func splitFrontmatter(data []byte) (string, string, bool) {

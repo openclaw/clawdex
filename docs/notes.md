@@ -65,8 +65,11 @@ Follow up about dinner next Thursday.
 
 You can edit notes directly with `$EDITOR` — clawdex reads them back. If
 the frontmatter gets damaged, [`clawdex doctor --repair`](doctor.md)
-salvages known fields and preserves the body verbatim under a *Recovered
-metadata* heading.
+salvages known fields, preserves the prose, and appends damaged metadata
+under a *Recovered metadata* heading. Note reads also repair automatically
+when `repair.auto_repair` is enabled; `--dry-run` disables these writes.
+Note reads, writes, and repair backups stay rooted in the contacts repository;
+symlinked note files or directories are rejected before repair.
 
 ## Conventions that pay off
 

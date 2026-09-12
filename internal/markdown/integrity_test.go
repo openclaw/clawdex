@@ -35,11 +35,11 @@ func TestPreserveUnknownFrontmatter(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				n, _, err := ReadNote(path)
+				n, _, err := ReadNote(filepath.Dir(path), path)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := WriteNote(path, n); err != nil {
+				if err := WriteNote(filepath.Dir(path), path, n); err != nil {
 					t.Fatal(err)
 				}
 				encoded, err = json.Marshal(n)
@@ -131,4 +131,35 @@ func TestRepairBackupsRetainEveryOriginalAtSameTime(t *testing.T) {
 			t.Fatalf("backups overwritten: %v", contents)
 		}
 	})
+}
+
+func TestNoteRepairKeepsDistinctRecoveryPayloadsWithoutBackups(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "note.md")
+	body := "## Recovered metadata\n\nExisting prose\n"
+	for _, value := range []string{"first", "second"} {
+		original := "---\nid: note_stable\ncustom: " + value + "\ntopics: [broken\n---\n" + body
+		if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		n, report, err := ReadNote(root, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n.PersonID = "person_stable"
+		if err := RepairNote(root, path, filepath.Join(root, "repairs"), n, report, false); err != nil {
+			t.Fatal(err)
+		}
+		got, _, err := ReadNote(root, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body = got.Body
+	}
+	if !strings.Contains(body, "custom: first") || !strings.Contains(body, "custom: second") || !strings.Contains(body, "Existing prose") {
+		t.Fatalf("lost recovery payload: %s", body)
+	}
+	if got := recoveredBody(body, "id: note_stable\ncustom: second\ntopics: [broken"); got != body {
+		t.Fatal("duplicate payload appended again")
+	}
 }

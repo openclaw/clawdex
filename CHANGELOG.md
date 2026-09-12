@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Repaired damaged and incomplete notes through Doctor and automatic note reads, preserving original backups and honoring dry-run and repair settings.
+
 - Preserved custom person/note frontmatter during writes, persisted missing person identities through repair, and prevented repeated repairs from overwriting earlier backup originals.
 
 - Fixed phone searches to match normalized numbers and stopped silently omitting unreadable person files from listings and imports.
