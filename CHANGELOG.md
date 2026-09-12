@@ -8,6 +8,8 @@
 
 - Fixed Google imports rejecting empty contact pages, and made Birdclaw/Discrawl source reads consistently read-only with literal database paths so dry runs cannot create missing archives.
 
+- Fixed documentation navigation showing stale pages after rapid tab changes and restored links to section headings.
+
 - Updated the YAML parser to the maintained YAML organization v3 release and refreshed documentation renderer dependencies, preserving Go 1.26.8 and the existing macOS baseline.
 
 - Fixed vCard exports combining all tags into one category and exceeding the 75-octet physical line limit on continuations.

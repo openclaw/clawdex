@@ -530,6 +530,7 @@
       const metaSlug = document.getElementById("meta-slug");
       const metaLink = document.getElementById("meta-link");
       const cache = new Map();
+      let activeLoad = 0;
 
       function showMessage(message, error = false) {
         const paragraph = document.createElement("p");
@@ -599,6 +600,7 @@
       }
 
       async function load(slug) {
+        const request = ++activeLoad;
         setActive(slug);
         showMessage("flipping to " + slug + "…");
         let md = cache.get(slug);
@@ -608,21 +610,39 @@
             const res = await fetch("docs/" + file, { headers: { "Accept": "text/plain" } });
             if (!res.ok) throw new Error(res.status + " " + res.statusText);
             md = await res.text();
+            if (request !== activeLoad) return;
             cache.set(slug, md);
           } catch (err) {
+            if (request !== activeLoad) return;
             showMessage("card not found: " + slug + " — " + err.message + ". Reload to retry.", true);
             return;
           }
         }
         const clean = DOMPurify.sanitize(marked.parse(md), { ADD_ATTR: ['target'] });
         article.innerHTML = clean;
+        const usedIds = new Set([...article.querySelectorAll("[id]")].map(element => element.id));
+        for (const heading of article.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
+          if (heading.id) continue;
+          const base = heading.textContent.trim().toLowerCase()
+            .replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-") || "section";
+          let id = base;
+          for (let suffix = 1; usedIds.has(id); suffix++) id = `${base}-${suffix}`;
+          usedIds.add(id);
+          heading.id = id;
+        }
 
-        const sub = location.hash.split("#")[2];
+        const sub = fragmentId();
         if (sub) {
-          const el = document.getElementById(sub);
+          const el = [...article.querySelectorAll("[id]")].find(element => element.id === sub);
           if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function fragmentId() {
+        const fragment = location.hash.split("#")[2] || "";
+        try { return decodeURIComponent(fragment); }
+        catch { return fragment; }
       }
 
       function route() {
