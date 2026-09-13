@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Updated the documentation Markdown renderer to Marked 18.0.13 and CI site/repair tooling to Node 26, preserving Go 1.26.8 and the existing macOS baseline.
+
 - Repaired damaged and incomplete notes through Doctor and automatic note reads, preserving original backups and honoring dry-run and repair settings.
 
 - Preserved custom person/note frontmatter during writes, persisted missing person identities through repair, and prevented repeated repairs from overwriting earlier backup originals.
