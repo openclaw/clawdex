@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.3.0 - 2026-09-13
 
 **Highlights:** Doctor now repairs damaged notes and keeps custom frontmatter intact; vCard exports and phone search are fixed.
