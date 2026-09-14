@@ -1,22 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-09-13
 
-- Updated the documentation Markdown renderer to Marked 18.0.13 and CI site/repair tooling to Node 26, preserving Go 1.26.8 and the existing macOS baseline.
+**Highlights:** Doctor now repairs damaged notes and keeps custom frontmatter intact; vCard exports and phone search are fixed.
 
 - Repaired damaged and incomplete notes through Doctor and automatic note reads, preserving original backups and honoring dry-run and repair settings.
-
 - Preserved custom person/note frontmatter during writes, persisted missing person identities through repair, and prevented repeated repairs from overwriting earlier backup originals.
-
-- Fixed phone searches to match normalized numbers and stopped silently omitting unreadable person files from listings and imports.
-
-- Fixed Google imports rejecting empty contact pages, and made Birdclaw/Discrawl source reads consistently read-only with literal database paths so dry runs cannot create missing archives.
-
-- Fixed documentation navigation showing stale pages after rapid tab changes and restored links to section headings.
-
-- Updated the YAML parser to the maintained YAML organization v3 release and refreshed documentation renderer dependencies, preserving Go 1.26.8 and the existing macOS baseline.
-
 - Fixed vCard exports combining all tags into one category and exceeding the 75-octet physical line limit on continuations.
+- Fixed phone searches to match normalized numbers and stopped silently omitting unreadable person files from listings and imports.
+- Fixed Google imports rejecting empty contact pages, and made Birdclaw/Discrawl source reads consistently read-only with literal database paths so dry runs cannot create missing archives.
+- Fixed documentation navigation showing stale pages after rapid tab changes and restored links to section headings.
+- Updated the YAML parser to the maintained YAML organization v3 release and refreshed documentation renderer dependencies, preserving Go 1.26.8 and the existing macOS baseline.
+- Updated the documentation Markdown renderer to Marked 18.0.13 and CI site/repair tooling to Node 26, preserving Go 1.26.8 and the existing macOS baseline.
 
 ## 0.2.3 - 2026-09-11
 
