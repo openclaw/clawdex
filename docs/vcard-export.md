@@ -18,6 +18,11 @@ Without `--include-avatars`, the file is text-only and small. With it, each
 person's avatar is embedded as a base64 `PHOTO:data:<mime>;base64,...` URI. A few
 hundred avatars adds up — expect a few megabytes.
 
+Avatar MIME metadata must be a valid media type without line breaks. MIME
+parameters are encoded for the data URI. Invalid metadata stops the export
+and leaves an existing output file intact; use `clawdex doctor --repair` to
+recompute avatar metadata from the stored file, then export again.
+
 Clawdex resolves avatar files within the contacts repo, rejects symlink
 components, and opens only regular files; FIFOs and devices are rejected
 without blocking. File output uses a private `0600` temporary file in the

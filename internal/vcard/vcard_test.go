@@ -82,6 +82,62 @@ func TestWriteVCardWithAvatar(t *testing.T) {
 	}
 }
 
+func TestAvatarMIMERejectsPropertyInjectionAndPreservesOutput(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "avatar.bin"), []byte("synthetic avatar"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	person := model.Person{ID: "p", Name: "Ada", Path: filepath.Join(root, "person.md"), Avatar: model.AvatarRef{Path: "avatar.bin"}}
+	for _, value := range []string{
+		"image/png\r\nEMAIL:injected@example.com\r\nX-IGNORED:",
+		"image/png\nEMAIL:injected@example.com",
+		"image/png\rEMAIL:injected@example.com",
+		"image/png\n",
+		"image",
+		"image/png;broken",
+	} {
+		t.Run(value, func(t *testing.T) {
+			person.Avatar.MIME = value
+			output := filepath.Join(root, "contacts.vcf")
+			original := "previous export"
+			if err := os.WriteFile(output, []byte(original), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			opts := Options{IncludeAvatars: true, RepoRoot: root}
+			if err := WriteFile(output, []model.Person{person}, opts); err == nil {
+				t.Fatal("invalid avatar MIME was accepted")
+			}
+			data, err := os.ReadFile(output)
+			if err != nil || string(data) != original {
+				t.Fatalf("previous export changed: %q %v", data, err)
+			}
+			var stdout bytes.Buffer
+			if err := WriteWithOptions(&stdout, []model.Person{person}, opts); err == nil || stdout.Len() != 0 {
+				t.Fatalf("unsafe stdout export: %q %v", stdout.String(), err)
+			}
+		})
+	}
+}
+
+func TestPhotoMediaTypeEncodesURIComponents(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{"", "application/octet-stream"},
+		{" IMAGE/PNG ", "image/png"},
+		{"image/svg+xml", "image/svg+xml"},
+		{`image/png; name="a,b;#%\".png"; charset=UTF-8`, "image/png;charset=UTF-8;name=a%2Cb%3B%23%25%22.png"},
+		{"image/x#custom", "image/x%23custom"},
+		{`image/png; name="a b.png"`, "image/png;name=a%20b.png"},
+		{`image/png; name="a=b:@+ foo.png"`, "image/png;name=a%3Db%3A%40%2B%20foo.png"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := photoMediaType(tc.input)
+			if err != nil || got != tc.want {
+				t.Fatalf("media type = %q, %v; want %q", got, err, tc.want)
+			}
+		})
+	}
+}
+
 func TestWriteWithAvatarRejectsSymlinkEscapes(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()

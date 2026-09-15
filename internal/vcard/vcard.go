@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"mime"
+	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -134,11 +138,37 @@ func photoLine(p model.Person, root string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	mime := strings.TrimSpace(p.Avatar.MIME)
-	if mime == "" {
-		mime = "application/octet-stream"
+	mediaType, err := photoMediaType(p.Avatar.MIME)
+	if err != nil {
+		return "", err
 	}
-	return "PHOTO:data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+	return "PHOTO:data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+func photoMediaType(value string) (string, error) {
+	if strings.ContainsAny(value, "\r\n") {
+		return "", errors.New("avatar MIME type contains a line break; repair avatar metadata before exporting")
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "application/octet-stream", nil
+	}
+	mediaType, params, err := mime.ParseMediaType(value)
+	major, subtype, ok := strings.Cut(mediaType, "/")
+	if err != nil || !ok {
+		return "", errors.New("invalid avatar MIME type; repair avatar metadata before exporting")
+	}
+	// MIME tokens and quoted parameters can contain URI delimiters. Escape
+	// their components so they cannot become a fragment or end the data header.
+	var header strings.Builder
+	header.WriteString(url.PathEscape(major) + "/" + url.PathEscape(subtype))
+	for _, key := range slices.Sorted(maps.Keys(params)) {
+		// Parameter values also need MIME separators escaped; data URIs use
+		// percent-encoded spaces rather than form encoding's plus sign.
+		encoded := strings.ReplaceAll(url.QueryEscape(params[key]), "+", "%20")
+		header.WriteString(";" + url.PathEscape(key) + "=" + encoded)
+	}
+	return header.String(), nil
 }
 
 func structuredName(p model.Person) string {
