@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.3.1 - 2026-09-22
 
 **Highlights:** Safer vCard exports and contact-file access, with reliable Windows contact listings.
