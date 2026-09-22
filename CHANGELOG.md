@@ -1,11 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 - 2026-09-22
 
-- Fixed Windows contact listings failing on empty person directories by recognizing missing files consistently. Thanks @SebTardif.
+**Highlights:** Safer vCard exports and contact-file access, with reliable Windows contact listings.
 
 - Fixed avatar MIME metadata injecting extra vCard properties or corrupting PHOTO data URIs; exports validate media types and safely encode their parameters.
 - Rejected symbolic links in person Markdown, repair backups, and generated indexes, preventing outside-file reads and writes while preserving ordinary contact repositories. Thanks @SebTardif.
+- Fixed Windows contact listings failing on empty person directories by recognizing missing files consistently. Thanks @SebTardif.
 
 ## 0.3.0 - 2026-09-13
 
