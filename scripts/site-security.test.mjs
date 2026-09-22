@@ -7,7 +7,7 @@ const viewer = fs.readFileSync(new URL("./site.js", import.meta.url), "utf8");
 const expected = new Map([
   ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-light.min.css", "sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5"],
   ["https://cdn.jsdelivr.net/npm/highlight.js@11.12.0/styles/atom-one-dark.min.css", "sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07"],
-  ["https://cdn.jsdelivr.net/npm/marked@18.0.13/lib/marked.umd.js", "sha384-Jy8qDMspJASzATgFngF2ompIKy0StbCcvuTE65mxDm/E0/YSIF6Ndc+5V7bbwRcw"],
+  ["https://cdn.jsdelivr.net/npm/marked@18.0.14/lib/marked.umd.js", "sha384-2vpGtuKqJvFlwJqYnf/wUMuzUfhUnYBt9oay0e2yaFcq0Dh6/aEbQ8YAOeKGzlYo"],
   ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/highlight.min.js", "sha384-wjfDDhOPPdjtva8vWBhWeVprSpmxisEu5aYT3q1JyACqXpdKpo3PWZTMVq24MBix"],
   ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/languages/go.min.js", "sha384-orYKHAs3chK3oDMQLy5ywrzoY8z9zvzfmNIjmVxKXioAUtwDhP+xf6THWYSI/43Y"],
   ["https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.12.0/languages/dockerfile.min.js", "sha384-/zu1pI8+9j/v/qNlCRRyidiBhGdxfvGwOLXEPBXpKc77eFNUAhccr0WglEQ+x9La"],
