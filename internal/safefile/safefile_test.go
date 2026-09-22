@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -123,7 +124,7 @@ func TestAtomicWriteFileIsPrivateAndRejectsSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatalf("mode = %o", info.Mode().Perm())
 	}
 	if err := AtomicWriteFile(root, filepath.Join("nested", "value"), []byte("second"), 0o600); err != nil {
@@ -185,6 +186,18 @@ func TestAtomicWriteStreamsAndPreservesDestinationOnError(t *testing.T) {
 	}
 }
 
+func TestReadFileMissingIsNotExist(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{"missing", filepath.Join("missing-parent", "file")} {
+		t.Run(path, func(t *testing.T) {
+			_, err := ReadFile(root, path)
+			if !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("missing read error = %v", err)
+			}
+		})
+	}
+}
+
 func TestRootedMissingAndDestinationTypeErrors(t *testing.T) {
 	root := t.TempDir()
 	missingRoot := filepath.Join(root, "missing-root")
@@ -197,8 +210,8 @@ func TestRootedMissingAndDestinationTypeErrors(t *testing.T) {
 	if err := AtomicWriteFile(missingRoot, "file", nil, 0o600); err == nil {
 		t.Fatal("expected missing write root error")
 	}
-	if _, err := ReadFile(root, "missing"); err == nil {
-		t.Fatal("expected missing read error")
+	if _, err := ReadFile(root, "missing"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing read error = %v", err)
 	}
 	if _, err := ExistingPath(root, "missing"); err == nil {
 		t.Fatal("expected missing existing-path error")
@@ -208,7 +221,7 @@ func TestRootedMissingAndDestinationTypeErrors(t *testing.T) {
 	if err := os.Mkdir(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadFile(root, "directory"); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+	if _, err := ReadFile(root, "directory"); err == nil || errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("directory read error = %v", err)
 	}
 	if err := AtomicWriteFile(root, "directory", nil, 0o600); err == nil || !strings.Contains(err.Error(), "not a regular file") {

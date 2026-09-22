@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Windows contact listings failing on empty person directories by recognizing missing files consistently. Thanks @SebTardif.
+
 - Fixed avatar MIME metadata injecting extra vCard properties or corrupting PHOTO data URIs; exports validate media types and safely encode their parameters.
 - Rejected symbolic links in person Markdown, repair backups, and generated indexes, preventing outside-file reads and writes while preserving ordinary contact repositories. Thanks @SebTardif.
 

@@ -147,8 +147,8 @@ jobs:
         with:
           node-version: 26
 
-      - name: Test native repair paths
-        run: go test -count=1 ./internal/markdown
+      - name: Test native repair and missing-file paths
+        run: go test -count=1 ./internal/markdown ./internal/safefile ./internal/index
 
       - name: Build
         run: go build -o bin/clawdex.exe ./cmd/clawdex

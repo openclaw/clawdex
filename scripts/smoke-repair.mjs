@@ -26,6 +26,10 @@ try {
   const original = "---\nid: person_1\nname: Ada Lovelace\ntags: [math\n---\n# Ada\n";
   writeFileSync(person, original);
   assert.equal(run("doctor", "--repair").repaired, 1);
+  mkdirSync(join(repo, "people", "empty-dir"));
+  const listed = run("person", "list");
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].name, "Ada Lovelace");
   const repairs = join(repo, ".clawdex", "repairs");
   const backups = readdirSync(repairs, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile());

@@ -60,6 +60,9 @@ func openReadFile(root, path string) (*os.File, error) {
 		if err == windows.STATUS_REPARSE_POINT_ENCOUNTERED {
 			return nil, fmt.Errorf("path contains symbolic link: %s: %w", path, err)
 		}
+		if err == windows.STATUS_OBJECT_NAME_NOT_FOUND || err == windows.STATUS_OBJECT_PATH_NOT_FOUND {
+			return nil, &os.PathError{Op: "openat", Path: path, Err: os.ErrNotExist}
+		}
 		return nil, &os.PathError{Op: "openat", Path: path, Err: err}
 	}
 	return os.NewFile(uintptr(handle), filepath.Join(root, path)), nil
