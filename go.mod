@@ -1,11 +1,11 @@
 module github.com/openclaw/clawdex
 
-go 1.26.8
+go 1.27.0
 
 require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/google/uuid v1.6.0
-	github.com/openclaw/crawlkit v0.14.7
+	github.com/openclaw/crawlkit v0.16.7
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sys v0.48.0
 )
