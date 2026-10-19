@@ -2,6 +2,8 @@ module github.com/openclaw/clawdex
 
 go 1.27.0
 
+toolchain go1.27.2
+
 require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/google/uuid v1.6.0

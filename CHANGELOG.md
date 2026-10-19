@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Build with Go 1.27.2 to fix standard-library vulnerabilities while retaining the Go 1.27.0 minimum; enable release-pipeline dry runs without publishing.
+
 ## 0.3.1 - 2026-09-22
 
 **Highlights:** Safer vCard exports and contact-file access, with reliable Windows contact listings.

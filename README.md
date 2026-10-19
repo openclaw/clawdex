@@ -25,7 +25,7 @@ brew install openclaw/tap/clawdex
 Or build locally:
 
 ```bash
-go install github.com/openclaw/clawdex/cmd/clawdex@latest
+GOTOOLCHAIN=go1.27.2+auto go install github.com/openclaw/clawdex/cmd/clawdex@latest
 ```
 
 ```bash
