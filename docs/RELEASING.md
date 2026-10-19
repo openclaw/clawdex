@@ -43,7 +43,9 @@ goreleaser check
 goreleaser release --snapshot --clean --skip=publish
 ```
 
-Use the Go toolchain specified by `go.mod`. Snapshot Darwin binaries are
+Use the Go 1.27.2 toolchain selected by `go.mod`; the minimum Go version remains
+1.27.0. CI and the shared release workflow honor the `toolchain` directive so
+builds include the patched standard library. Snapshot Darwin binaries are
 development artifacts; the official workflow signs and notarizes its own frozen
 payload before publication. Never upload local snapshots as an official release.
 
@@ -76,6 +78,16 @@ and `can_approve_pull_request_reviews=true` for the shared closeout PR. The
 caller starts with `permissions: {}` and grants only its jobs' required scopes.
 
 ## Dispatch and verification
+
+To verify the release pipeline without publishing, run it on green `main` with
+the current released version and `dry_run=true`:
+
+```bash
+gh workflow run release-unified.yml --repo openclaw/clawdex --ref main -f version=0.3.1 -F dry_run=true
+```
+
+This builds, signs, and independently verifies artifacts without creating tags,
+GitHub releases, or Homebrew updates.
 
 Immediately before starting a new release, refresh tags and check for collisions:
 
@@ -121,7 +133,7 @@ source install and the Homebrew formula:
 
 ```bash
 go list -m github.com/openclaw/clawdex@vX.Y.Z
-go install github.com/openclaw/clawdex/cmd/clawdex@vX.Y.Z
+GOTOOLCHAIN=go1.27.2+auto go install github.com/openclaw/clawdex/cmd/clawdex@vX.Y.Z
 clawdex --version
 brew update
 brew install openclaw/tap/clawdex  # or brew upgrade openclaw/tap/clawdex

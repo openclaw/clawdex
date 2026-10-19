@@ -17,12 +17,15 @@ the release inventory and Darwin trust checks have passed.
 ## Go install
 
 ```bash
-go install github.com/openclaw/clawdex/cmd/clawdex@latest
+GOTOOLCHAIN=go1.27.2+auto go install github.com/openclaw/clawdex/cmd/clawdex@latest
 clawdex --version
 ```
 
-Source builds require the Go version declared in
-[`go.mod`](https://github.com/openclaw/clawdex/blob/main/go.mod).
+Source builds require at least Go 1.27.0. The command above explicitly selects
+Go 1.27.2 or newer because version-suffixed `go install` ignores the target
+module's `toolchain` directive. Builds from a cloned checkout select the patched
+toolchain declared in [`go.mod`](https://github.com/openclaw/clawdex/blob/main/go.mod)
+when automatic toolchain selection is enabled.
 
 ## Build from source
 
@@ -101,7 +104,7 @@ count, and any avatar problems.
 ## Updating
 
 - **Homebrew:** `brew upgrade clawdex`.
-- **Go install:** rerun `go install github.com/openclaw/clawdex/cmd/clawdex@latest`.
+- **Go install:** rerun `GOTOOLCHAIN=go1.27.2+auto go install github.com/openclaw/clawdex/cmd/clawdex@latest`.
 - **Release archives:** download the new tarball and replace the binary.
 - **Source:** `git pull && go build -o ./bin/clawdex ./cmd/clawdex`.
 
