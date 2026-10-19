@@ -16,6 +16,7 @@ linters:
     - gocheckcompilerdirectives
     - gocritic
     - gomoddirectives
+    - gosec
     - govet
     - intrange
     - ineffassign
@@ -39,6 +40,20 @@ linters:
     - usetesting
     - usestdlibvars
     - wastedassign
+  settings:
+    gosec:
+      excludes:
+        - G101
+        - G115
+        - G202
+        - G301
+        - G304
+  exclusions:
+    rules:
+      # Match the former standalone gosec scope; other linters still check tests.
+      - path: _test\.go
+        linters:
+          - gosec
 
 formatters:
   enable:

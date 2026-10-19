@@ -30,12 +30,11 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.13.2
+          version: v2.15.0
 
       - name: Install analyzers
         run: |
           go install mvdan.cc/gofumpt@v0.12.0
-          go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
           go install golang.org/x/tools/cmd/deadcode@v0.50.0
 
       - name: Deadcode
@@ -54,10 +53,6 @@ jobs:
             printf 'gofumpt wants changes in:\n%s\n' "$changed"
             exit 1
           fi
-
-      - name: Gosec
-        run: |
-          "$(go env GOPATH)/bin/gosec" -exclude=G101,G115,G202,G301,G304 ./...
 
   site:
     runs-on: ubuntu-latest

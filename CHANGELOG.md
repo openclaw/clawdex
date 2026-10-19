@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Build with Go 1.27.2 to fix standard-library vulnerabilities while retaining the Go 1.27.0 minimum; enable release-pipeline dry runs without publishing.
+- Build with Go 1.27.2 to fix standard-library vulnerabilities while retaining the Go 1.27.0 minimum, update golangci-lint for the patched toolchain, and enable release-pipeline dry runs without publishing.
 
 ## 0.3.1 - 2026-09-22
 
