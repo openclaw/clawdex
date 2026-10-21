@@ -61,7 +61,9 @@ the latest tag.
 
 ## Platform notes
 
-- **macOS** is the most exercised target. Official archives contain hardened,
+- **macOS 13 Ventura or newer** is required by the Go 1.27 runtime in official
+  binaries starting with 0.4.0. macOS 12 users can keep using 0.3.1.
+  Official archives contain hardened,
   timestamped, notarized binaries for Apple Silicon and Intel. `clawdex import
   apple` currently runs `Contacts.framework` access through a temporary Swift
   helper; permission belongs to that helper/toolchain identity and is not
