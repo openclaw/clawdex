@@ -51,6 +51,12 @@ builds include the patched standard library. Snapshot Darwin binaries are
 development artifacts; the official workflow signs and notarizes its own frozen
 payload before publication. Never upload local snapshots as an official release.
 
+Official macOS binaries require macOS 13 Ventura or newer, matching
+[Go 1.27 support](https://go.dev/doc/go1.27#darwin). Before publication, inspect
+`otool -l` for both Darwin architectures and require `LC_BUILD_VERSION` minos
+13.0, then verify signatures, notarization, and native CLI execution. A future
+minimum increase must be called out in installation docs and release notes.
+
 ## Repository configuration
 
 The caller passes the standard shared-workflow secrets by name:

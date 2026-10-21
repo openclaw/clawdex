@@ -16,6 +16,8 @@ https://github.com/<you>/backup-clawdex.git
 
 ## Setup
 
+Official macOS binaries require macOS 13 Ventura or newer.
+
 Install from Homebrew:
 
 ```bash

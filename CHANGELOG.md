@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-## 0.3.2 - 2026-10-20
+## 0.4.0 - 2026-10-20
 
-**Highlights:** Patched Go security fixes, refreshed dependencies, and verified release-tag signatures.
+**Highlights:** Patched Go security fixes, refreshed dependencies, and verified release-tag signatures; macOS 13 or newer is now required.
 
+- Require macOS 13 Ventura or newer for official binaries, matching the Go 1.27 runtime minimum. macOS 12 users can keep using 0.3.1.
 - Build with Go 1.27.2 to fix standard-library vulnerabilities while retaining the Go 1.27.0 minimum, update golangci-lint for the patched toolchain, and enable release-pipeline dry runs without publishing.
 - Update CrawlKit to 0.17.1 and x/sys to 0.49.0 while retaining the Go 1.27.0 minimum and patched Go 1.27.2 build toolchain.
 - Require release tags signed by the fleet release key before official builds and publication.
