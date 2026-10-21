@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require release tags signed by the fleet release key before official builds and publication.
+
+- Update CrawlKit to 0.17.1 and x/sys to 0.49.0 while retaining the Go 1.27.0 minimum and patched Go 1.27.2 build toolchain.
+
 - Build with Go 1.27.2 to fix standard-library vulnerabilities while retaining the Go 1.27.0 minimum, update golangci-lint for the patched toolchain, and enable release-pipeline dry runs without publishing.
 
 ## 0.3.1 - 2026-09-22
