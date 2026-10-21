@@ -26,6 +26,7 @@ jobs:
     with:
       version: ${{ inputs.version }}
       dry-run: ${{ inputs.dry_run }}
+      require-signed-tag: true
       repository-type: openclaw
       homebrew-tap: openclaw/homebrew-tap
       homebrew-formula: clawdex

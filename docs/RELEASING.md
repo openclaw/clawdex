@@ -7,7 +7,9 @@ summary: "Release clawdex through the shared OpenClaw Go CLI workflow"
 Official releases use `.github/workflows/release-unified.yml`, which calls
 `openclaw/release-workflows/.github/workflows/release-go-cli.yml@v1`.
 This is the same shared contract used by Wacrawl, Notcrawl, and Graincrawl.
-The shared workflow owns the annotated version tag, Foundation signing, Apple
+Releases require an annotated tag signed by the fleet release key listed in
+`.github/release-allowed-signers`. The shared workflow verifies that signature
+before building and owns Foundation signing, Apple
 notarization, artifact verification, GitHub publication, and Homebrew handoff.
 
 ## Prepare the release
@@ -98,15 +100,18 @@ git tag
 ```
 
 If the target tag or release already exists, stop and inspect that release;
-do not move its tag or start another publication attempt. With a new version,
-dispatch from the exact green `main` head:
+do not move its tag or start another publication attempt. With a new version, first run a dry run for that version on the exact green
+release-preparation commit. After it succeeds, create the annotated tag using the
+fleet release key, verify it against `.github/release-allowed-signers`, and push
+it without moving any existing tag. Then dispatch from the same green `main`
+head:
 
 ```bash
 gh workflow run release-unified.yml --repo openclaw/clawdex --ref main -f version=X.Y.Z
 gh run list --repo openclaw/clawdex --workflow release-unified.yml --limit 3 --json databaseId,headSha,status,conclusion,url
 ```
 
-The pipeline checks signing credentials before creating its tag, freezes the
+The pipeline verifies the signed tag and signing credentials, freezes the
 protected source commit, and builds all six native Darwin/Linux/Windows targets.
 It signs Darwin binaries as `org.openclaw.clawdex` with the OpenClaw Foundation
 identity (`FWJYW4S8P8`) and notarizes them. Independent Intel and Apple Silicon

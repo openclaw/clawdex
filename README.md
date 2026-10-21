@@ -149,7 +149,7 @@ The `index/*.json` files are derived and rebuildable. Markdown is canonical.
 ## Releases
 
 Official releases use the shared OpenClaw Go CLI workflow. It freezes a green
-protected-branch commit, creates the annotated version tag, builds the six
+protected-branch commit, verifies its fleet-signed annotated version tag, builds the six
 native archives, and signs and notarizes Darwin binaries as
 `org.openclaw.clawdex` with the OpenClaw Foundation identity. Independent
 macOS verifiers and a separate non-Darwin rebuild check the staged artifacts
