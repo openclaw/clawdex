@@ -45,7 +45,7 @@ goreleaser check
 goreleaser release --snapshot --clean --skip=publish
 ```
 
-Use the Go 1.27.2 toolchain selected by `go.mod`; the minimum Go version remains
+Use the Go 1.27.3 toolchain selected by `go.mod`; the minimum Go version remains
 1.27.0. CI and the shared release workflow honor the `toolchain` directive so
 builds include the patched standard library. Snapshot Darwin binaries are
 development artifacts; the official workflow signs and notarizes its own frozen
@@ -144,7 +144,7 @@ source install and the Homebrew formula:
 
 ```bash
 go list -m github.com/openclaw/clawdex@vX.Y.Z
-GOTOOLCHAIN=go1.27.2+auto go install github.com/openclaw/clawdex/cmd/clawdex@vX.Y.Z
+GOTOOLCHAIN=go1.27.3+auto go install github.com/openclaw/clawdex/cmd/clawdex@vX.Y.Z
 clawdex --version
 brew update
 brew install openclaw/tap/clawdex  # or brew upgrade openclaw/tap/clawdex

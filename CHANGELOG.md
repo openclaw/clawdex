@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.1 - 2026-10-20
+
+**Highlights:** Rebuild with Go 1.27.3 to fix the reachable crypto/x509 certificate-validation vulnerability.
+
+### Security
+
+- Build with Go 1.27.3 to fix the reachable crypto/x509 certificate-validation vulnerability GO-2026-6809 while retaining the Go 1.27.0 minimum.
+
 ## 0.4.0 - 2026-10-20
 
 **Highlights:** Patched Go security fixes, refreshed dependencies, and verified release-tag signatures; macOS 13 or newer is now required.
