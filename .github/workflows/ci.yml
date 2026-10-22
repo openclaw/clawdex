@@ -64,7 +64,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 26
+          node-version: 26.12.1
 
       - name: Test site tooling
         run: node --test scripts/*.test.mjs
@@ -140,7 +140,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 26
+          node-version: 26.12.1
 
       - name: Test native repair and missing-file paths
         run: go test -count=1 ./internal/markdown ./internal/safefile ./internal/index
