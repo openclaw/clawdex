@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 )
 
@@ -337,5 +340,154 @@ func TestPathValidation(t *testing.T) {
 	}
 	if err := AtomicWriteFile(root, "bad-mode", nil, os.ModeDir|0o600); err == nil {
 		t.Fatal("expected bad mode error")
+	}
+}
+
+func TestAtomicCreateFileDoesNotReplaceExistingFile(t *testing.T) {
+	root := t.TempDir()
+	if err := AtomicCreateFile(root, filepath.Join("dir", "leaf"), []byte("first"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := AtomicCreateFile(root, filepath.Join("dir", "leaf"), []byte("second"), 0o600)
+	if !errors.Is(err, os.ErrExist) {
+		t.Fatalf("second create err = %v, want os.ErrExist", err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "dir", "leaf"))
+	if err != nil || string(data) != "first" {
+		t.Fatalf("leaf = %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(filepath.Join(root, "dir"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("temporary files left behind: %v", entries)
+	}
+}
+
+func TestAtomicCreateFileWithoutHardLinks(t *testing.T) {
+	restore := SimulateNoHardLinks()
+	defer restore()
+	root := t.TempDir()
+	leaf := filepath.Join("dir", "leaf")
+	if err := AtomicCreateFile(root, leaf, []byte("first"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := AtomicCreateFile(root, leaf, []byte("second"), 0o600)
+	if !errors.Is(err, os.ErrExist) {
+		t.Fatalf("second create err = %v, want os.ErrExist", err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, leaf))
+	if err != nil || string(data) != "first" {
+		t.Fatalf("leaf = %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(filepath.Join(root, "dir"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("temporary or reservation files left behind: %v", entries)
+	}
+}
+
+func TestAtomicCreateFileWithoutHardLinksKeepsConcurrentCreator(t *testing.T) {
+	restore := SimulateNoHardLinks()
+	defer restore()
+	root := t.TempDir()
+	const writers = 24
+	var wg sync.WaitGroup
+	results := make(chan error, writers)
+	for i := range writers {
+		wg.Go(func() {
+			results <- AtomicCreateFile(root, "leaf", []byte(strconv.Itoa(i)), 0o600)
+		})
+	}
+	wg.Wait()
+	close(results)
+	created := 0
+	for err := range results {
+		switch {
+		case err == nil:
+			created++
+		case !errors.Is(err, os.ErrExist):
+			t.Fatal(err)
+		}
+	}
+	if created != 1 {
+		t.Fatalf("%d writers created the leaf, want exactly 1", created)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "leaf"))
+	if err != nil || len(data) == 0 {
+		t.Fatalf("leaf = %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("temporary files left behind: %v", entries)
+	}
+}
+
+func TestLinkUnsupported(t *testing.T) {
+	link := func(err error) error { return &os.LinkError{Op: "linkat", Old: "a", New: "b", Err: err} }
+	cases := []struct {
+		err  error
+		want bool
+	}{
+		{link(syscall.ENOTSUP), true},
+		{link(errors.ErrUnsupported), true},
+		{link(syscall.EEXIST), false},
+		{link(os.ErrExist), false},
+		{link(syscall.ENOENT), false},
+		{link(syscall.EIO), false},
+	}
+	for _, c := range cases {
+		if got := linkUnsupported(c.err); got != c.want {
+			t.Errorf("linkUnsupported(%v) = %v, want %v", c.err, got, c.want)
+		}
+	}
+}
+
+func TestAtomicCreateFileWithoutHardLinksRespectsStaleLock(t *testing.T) {
+	restore := SimulateNoHardLinks()
+	defer restore()
+	root := t.TempDir()
+	lock := filepath.Join(root, ".leaf.create-lock")
+	if err := os.WriteFile(lock, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := AtomicCreateFile(root, "leaf", []byte("data"), 0o600)
+	if !errors.Is(err, os.ErrExist) {
+		t.Fatalf("create err = %v, want os.ErrExist", err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, "leaf")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("leaf stat err = %v, want not exist", err)
+	}
+	if _, err := os.Lstat(lock); err != nil {
+		t.Fatalf("another creator's lock was removed: %v", err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("temporary files left behind: %v", entries)
+	}
+}
+
+func TestAtomicCreateFileWithoutHardLinksKeepsEmptyExistingFile(t *testing.T) {
+	restore := SimulateNoHardLinks()
+	defer restore()
+	root := t.TempDir()
+	leaf := filepath.Join(root, "leaf")
+	if err := os.WriteFile(leaf, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := AtomicCreateFile(root, "leaf", []byte("data"), 0o600); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("create err = %v, want os.ErrExist", err)
+	}
+	if info, err := os.Stat(leaf); err != nil || info.Size() != 0 {
+		t.Fatalf("existing empty file replaced: %v, %v", info, err)
 	}
 }

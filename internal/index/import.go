@@ -454,14 +454,6 @@ func setExternal(p *model.Person, source string, contact model.SourceContact, no
 }
 
 func (s Store) createImportedPerson(p model.Person) (model.Person, error) {
-	dir, err := s.uniquePersonDir(model.Slug(p.Name))
-	if err != nil {
-		return model.Person{}, err
-	}
-	p.Path = filepath.Join(dir, "person.md")
 	p.Body = "# " + p.Name + "\n"
-	if err := markdown.WritePerson(s.Repo.Path, p.Path, p); err != nil {
-		return model.Person{}, err
-	}
-	return p, nil
+	return s.createPerson(p)
 }

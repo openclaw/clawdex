@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -303,6 +304,156 @@ func TestAddNoteErrorsWhenNotesIsRegularFile(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("AddNote hung when notes is a regular file")
+	}
+}
+
+func TestConcurrentAddNoteAndPersonKeepEveryRecord(t *testing.T) {
+	testConcurrentAddNoteAndPerson(t)
+}
+
+func TestConcurrentAddNoteAndPersonKeepEveryRecordWithoutHardLinks(t *testing.T) {
+	restore := safefile.SimulateNoHardLinks()
+	defer restore()
+	testConcurrentAddNoteAndPerson(t)
+}
+
+func testConcurrentAddNoteAndPerson(t *testing.T) {
+	t.Helper()
+	s := New(testRepo(t))
+	if _, err := s.AddPerson("Ada Concurrent", nil, nil, nil, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	const writers = 24
+	occurred := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2*writers)
+	for i := range writers {
+		wg.Go(func() {
+			n := markdown.NewNote("", "dm", "manual", fmt.Sprintf("note %d", i), occurred, time.Now(), nil)
+			_, err := s.AddNote("Ada Concurrent", n)
+			errs <- err
+		})
+		wg.Go(func() {
+			_, err := s.AddPerson("Bob Concurrent", []string{fmt.Sprintf("bob%d@example.com", i)}, nil, nil, time.Now())
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	notes, err := s.Notes("Ada Concurrent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodies := map[string]bool{}
+	for _, n := range notes {
+		bodies[strings.TrimSpace(n.Body)] = true
+	}
+	if len(notes) != writers || len(bodies) != writers {
+		t.Fatalf("kept %d notes with %d distinct bodies, want %d", len(notes), len(bodies), writers)
+	}
+	people, err := s.People()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobs := 0
+	for _, p := range people {
+		if p.Name == "Bob Concurrent" {
+			bobs++
+		}
+	}
+	if bobs != writers {
+		t.Fatalf("kept %d concurrently added people, want %d", bobs, writers)
+	}
+}
+
+// An empty person.md beside intact notes is a damaged contact, not an
+// unfinished creation: it stays listed, inferred from its directory, and
+// repairable, and its notes stay readable and searchable.
+func TestEmptyPersonFileWithNotesStaysRepairable(t *testing.T) {
+	r := testRepo(t)
+	r.Config.Repair.AutoRepair = false
+	s := New(r)
+	p, err := s.AddPerson("Ada Damaged", nil, nil, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	note := markdown.NewNote(p.ID, "dm", "manual", "Kept the analytical engine notes\n", time.Now(), time.Now(), nil)
+	if _, err := s.AddNote(p.ID, note); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.Path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	people, err := s.People()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(people) != 1 || people[0].Path != p.Path || people[0].Name == "" {
+		t.Fatalf("people = %+v, want the damaged contact inferred from %s", people, p.Path)
+	}
+	damaged := people[0]
+	notes, err := s.Notes("ada damaged")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 1 || !strings.Contains(notes[0].Body, "analytical engine") {
+		t.Fatalf("notes = %+v", notes)
+	}
+	hits, err := s.Search("analytical")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) == 0 {
+		t.Fatal("search lost the damaged contact's note")
+	}
+	_, report, err := markdown.ReadPerson(r.Path, damaged.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Needed {
+		t.Fatalf("report = %+v, want repair needed", report)
+	}
+	if err := markdown.RepairPerson(r.Path, damaged.Path, r.RepairDir(), damaged, report, false); err != nil {
+		t.Fatal(err)
+	}
+	repaired, report, err := markdown.ReadPerson(r.Path, damaged.Path)
+	if err != nil || report.Needed || repaired.ID != damaged.ID {
+		t.Fatalf("after repair person = %+v, report = %+v, err = %v", repaired, report, err)
+	}
+}
+
+// A creation lock left by a crashed creator is never loaded as a record and
+// only moves new records to the next free name.
+func TestStaleCreationLockIsIgnored(t *testing.T) {
+	restore := safefile.SimulateNoHardLinks()
+	defer restore()
+	r := testRepo(t)
+	s := New(r)
+	stale := filepath.Join(r.PeopleDir(), "ada-locked", ".person.md.create-lock")
+	if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	people, err := s.People()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(people) != 0 {
+		t.Fatalf("people = %+v, want none", people)
+	}
+	p, err := s.createPerson(markdown.NewPerson("Ada Locked", time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(filepath.Dir(p.Path)) != "ada-locked-2" {
+		t.Fatalf("path = %s, want the next free directory", p.Path)
 	}
 }
 
