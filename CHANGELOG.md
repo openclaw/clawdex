@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed concurrent note, person, and imported-person creation silently overwriting records, including on filesystems without hard links; damaged empty contacts remain repairable. Thanks @parth-garg01.
+
 - Fixed Apple, Google, X, and Discord imports merging distinct same-name source contacts; name-only matching now respects existing source identities. Thanks @parth-garg01.
 
 ## 0.4.1 - 2026-10-20

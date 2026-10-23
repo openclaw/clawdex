@@ -80,6 +80,17 @@ files beneath the contacts repository. Clawdex rejects symbolic links in their
 paths and uses atomic replacement for writes. The repository root itself may
 use a platform alias, such as macOS `/var`.
 
+New person and note files are created exclusively, so concurrent `person add`,
+`note add`, and imports never replace each other's files. Clawdex publishes a
+new file with a hard link where the filesystem supports one. Otherwise it
+takes an exclusive hidden lock file beside the destination, such as
+`.person.md.create-lock`, and atomically renames the complete file into place
+only while the destination is still absent, so hard-link support is not
+required and no placeholder ever appears at the destination. Clawdex never
+loads lock files. One left behind by an interrupted command only makes later
+creations use the next free name, and you can delete it once no clawdex
+command is running.
+
 If an existing repository uses linked person files, replace each link with a
 regular file containing only the contact data you intend to archive. Inspect
 the link target before copying it. Remove linked index files; the next person

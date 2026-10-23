@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"syscall"
 )
 
 // MaxReadBytes is the cap for user-selected ReadPath files (10 MiB).
@@ -236,6 +238,32 @@ func AtomicWrite(root, relative string, perm os.FileMode, write func(io.Writer) 
 // AtomicWriteRoot applies AtomicWrite to an already-open root. The caller
 // retains ownership of root.
 func AtomicWriteRoot(root *os.Root, relative string, perm os.FileMode, write func(io.Writer) error) error {
+	return atomicWriteRoot(root, relative, perm, write, true)
+}
+
+// AtomicCreateFile is AtomicWriteFile for a destination that must not exist.
+// It fails with an error matching os.ErrExist, and leaves the existing file
+// untouched, when another writer created the leaf first.
+//
+// The complete file is published with a hard link, which never replaces an
+// existing leaf. On filesystems without hard links (some FAT, exFAT, network,
+// and FUSE mounts) it instead takes an exclusive creation lock beside the leaf
+// and renames the complete file into place only while the leaf is absent, so
+// readers never observe a placeholder at the destination: they see no file or
+// the complete file.
+func AtomicCreateFile(root, relative string, data []byte, perm os.FileMode) error {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.Close() }()
+	return atomicWriteRoot(r, relative, perm, func(w io.Writer) error {
+		_, err := w.Write(data)
+		return err
+	}, false)
+}
+
+func atomicWriteRoot(root *os.Root, relative string, perm os.FileMode, write func(io.Writer) error, replace bool) error {
 	if root == nil {
 		return errors.New("open root is required")
 	}
@@ -292,6 +320,19 @@ func AtomicWriteRoot(root *os.Root, relative string, perm os.FileMode, write fun
 	if err := rejectSymlinkLeaf(root, clean); err != nil {
 		return err
 	}
+	if !replace {
+		// Link never replaces an existing leaf, so concurrent creators cannot
+		// overwrite each other. The temporary name is removed by the defer.
+		err := hardLink(root, tmp, clean)
+		if err == nil || !linkUnsupported(err) {
+			return err
+		}
+		if err := publishLocked(root, tmp, clean); err != nil {
+			return err
+		}
+		removeTemp = false
+		return nil
+	}
 	// Root.Rename uses an in-root renameat operation. On Windows in Go 1.26,
 	// this is NtSetInformationFileEx with REPLACE_IF_EXISTS/POSIX semantics,
 	// not the non-replacing os.Rename implementation. The temporary and target
@@ -302,6 +343,65 @@ func AtomicWriteRoot(root *os.Root, relative string, perm os.FileMode, write fun
 	}
 	removeTemp = false
 	return nil
+}
+
+// noHardLinks makes hardLink fail as it does on a filesystem without hard
+// links. Tests set it through SimulateNoHardLinks.
+var noHardLinks atomic.Bool
+
+func hardLink(root *os.Root, oldname, newname string) error {
+	if noHardLinks.Load() {
+		return &os.LinkError{Op: "linkat", Old: oldname, New: newname, Err: syscall.ENOTSUP}
+	}
+	return root.Link(oldname, newname)
+}
+
+// SimulateNoHardLinks makes AtomicCreateFile take its no-hard-link path, as on
+// a filesystem without hard-link support, until restore is called. It lets
+// tests in other packages exercise that path on any filesystem.
+func SimulateNoHardLinks() (restore func()) {
+	previous := noHardLinks.Swap(true)
+	return func() { noHardLinks.Store(previous) }
+}
+
+// linkUnsupported reports whether a failed hard link means the filesystem
+// does not support hard links, so exclusive creation should use
+// publishLocked. A collision is never treated as unsupported.
+func linkUnsupported(err error) bool {
+	if errors.Is(err, os.ErrExist) {
+		return false
+	}
+	return errors.Is(err, errors.ErrUnsupported) || platformLinkUnsupported(err)
+}
+
+// publishLocked exclusively publishes the complete temporary file tmp at clean
+// without a hard link. Creators of clean serialize on an exclusive-create lock
+// file beside it: the lock holder renames tmp into place only when clean does
+// not exist, and every other creator fails with os.ErrExist and moves on to
+// the next free name, so a concurrent creation is never replaced. Nothing is
+// written at clean until the rename publishes the complete file, so readers
+// and repairs never see a placeholder there, and an existing empty file at
+// clean stays a damaged record rather than a reservation.
+//
+// A crash while holding the lock leaves only the hidden lock file, which no
+// reader loads; creators treat that name as taken and use the next suffix.
+func publishLocked(root *os.Root, tmp, clean string) error {
+	lock := filepath.Join(filepath.Dir(clean), "."+filepath.Base(clean)+".create-lock")
+	f, err := createLock(root, lock)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Remove(lock) }()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	switch _, err := root.Lstat(clean); {
+	case err == nil:
+		return &os.PathError{Op: "create", Path: clean, Err: os.ErrExist}
+	case !errors.Is(err, os.ErrNotExist):
+		return err
+	}
+	return root.Rename(tmp, clean)
 }
 
 func cleanRelative(path string) (string, error) {

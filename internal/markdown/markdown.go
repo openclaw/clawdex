@@ -90,6 +90,18 @@ func ReadPerson(root, path string) (model.Person, RepairReport, error) {
 }
 
 func WritePerson(root, path string, p model.Person) error {
+	return writePerson(root, path, p, safefile.AtomicWriteFile)
+}
+
+// CreatePerson writes a new person file and fails with an error matching
+// os.ErrExist instead of replacing a file another writer created first.
+func CreatePerson(root, path string, p model.Person) error {
+	return writePerson(root, path, p, safefile.AtomicCreateFile)
+}
+
+type writeFunc func(root, relative string, data []byte, perm os.FileMode) error
+
+func writePerson(root, path string, p model.Person, write writeFunc) error {
 	relative, err := safefile.Relative(root, path)
 	if err != nil {
 		return err
@@ -104,7 +116,7 @@ func WritePerson(root, path string, p model.Person) error {
 	if body == "" {
 		body = "# " + p.Name + "\n"
 	}
-	return safefile.AtomicWriteFile(root, relative, appendFrontmatter(front, body), 0o600)
+	return write(root, relative, appendFrontmatter(front, body), 0o600)
 }
 
 func RepairPerson(root, path, repairRoot string, p model.Person, report RepairReport, backup bool) error {
@@ -181,6 +193,16 @@ func ReadNote(root, path string) (model.Note, RepairReport, error) {
 }
 
 func WriteNote(root, path string, n model.Note) error {
+	return writeNote(root, path, n, safefile.AtomicWriteFile)
+}
+
+// CreateNote writes a new note file and fails with an error matching
+// os.ErrExist instead of replacing a file another writer created first.
+func CreateNote(root, path string, n model.Note) error {
+	return writeNote(root, path, n, safefile.AtomicCreateFile)
+}
+
+func writeNote(root, path string, n model.Note, write writeFunc) error {
 	relative, err := safefile.Relative(root, path)
 	if err != nil {
 		return err
@@ -190,7 +212,7 @@ func WriteNote(root, path string, n model.Note) error {
 	if err != nil {
 		return err
 	}
-	return safefile.AtomicWriteFile(root, relative, appendFrontmatter(front, strings.TrimLeft(n.Body, "\n")), 0o600)
+	return write(root, relative, appendFrontmatter(front, strings.TrimLeft(n.Body, "\n")), 0o600)
 }
 
 func splitFrontmatter(data []byte) (string, string, bool) {

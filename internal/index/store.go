@@ -35,17 +35,36 @@ func (s Store) AddPerson(name string, emails, phones, tags []string, now time.Ti
 	for i, phone := range cleanList(phones) {
 		p.Phones = append(p.Phones, model.ContactValue{Value: phone, Label: "other", Source: "manual", Primary: i == 0})
 	}
-	dir, err := s.uniquePersonDir(model.Slug(name))
+	p.Body = "# " + p.Name + "\n"
+	p, err := s.createPerson(p)
 	if err != nil {
 		return model.Person{}, err
 	}
-	path := filepath.Join(dir, "person.md")
-	p.Path = path
-	p.Body = "# " + p.Name + "\n"
-	if err := markdown.WritePerson(s.Repo.Path, path, p); err != nil {
-		return model.Person{}, err
-	}
 	return p, s.Rebuild()
+}
+
+// createPerson writes p into the first free person directory for its name.
+// Creation is exclusive, so a concurrent writer that claims the same
+// directory first moves this person to the next suffix instead of being
+// overwritten.
+func (s Store) createPerson(p model.Person) (model.Person, error) {
+	start := 0
+	for {
+		dir, index, err := s.uniquePersonDirFrom(model.Slug(p.Name), start)
+		if err != nil {
+			return model.Person{}, err
+		}
+		p.Path = filepath.Join(dir, "person.md")
+		err = markdown.CreatePerson(s.Repo.Path, p.Path, p)
+		if errors.Is(err, os.ErrExist) {
+			start = index + 1
+			continue
+		}
+		if err != nil {
+			return model.Person{}, err
+		}
+		return p, nil
+	}
 }
 
 func (s Store) People() ([]model.Person, error) {
@@ -129,21 +148,32 @@ func (s Store) AddNote(personQuery string, note model.Note) (model.Note, error) 
 	}
 	note.PersonID = p.ID
 	dir := filepath.Join(filepath.Dir(p.Path), "notes")
-	path, err := uniqueNotePath(dir, markdown.NoteFileName(note))
-	if err != nil {
-		return model.Note{}, err
+	fileName := markdown.NoteFileName(note)
+	start := 0
+	for {
+		path, index, err := uniqueNotePath(dir, fileName, start)
+		if err != nil {
+			return model.Note{}, err
+		}
+		note.Path = path
+		// Exclusive creation keeps concurrent note adds that picked the same
+		// name from silently replacing each other.
+		err = markdown.CreateNote(s.Repo.Path, path, note)
+		if errors.Is(err, os.ErrExist) {
+			start = index + 1
+			continue
+		}
+		if err != nil {
+			return model.Note{}, err
+		}
+		return note, nil
 	}
-	note.Path = path
-	if err := markdown.WriteNote(s.Repo.Path, path, note); err != nil {
-		return model.Note{}, err
-	}
-	return note, nil
 }
 
-func uniqueNotePath(dir, fileName string) (string, error) {
+func uniqueNotePath(dir, fileName string, start int) (string, int, error) {
 	ext := filepath.Ext(fileName)
 	stem := strings.TrimSuffix(fileName, ext)
-	for i := 0; ; i++ {
+	for i := start; ; i++ {
 		candidate := fileName
 		if i > 0 {
 			candidate = fmt.Sprintf("%s-%d%s", stem, i+1, ext)
@@ -151,10 +181,10 @@ func uniqueNotePath(dir, fileName string) (string, error) {
 		path := filepath.Join(dir, candidate)
 		_, err := os.Stat(path)
 		if errors.Is(err, os.ErrNotExist) {
-			return path, nil
+			return path, i, nil
 		}
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	}
 }
@@ -309,10 +339,15 @@ func (s Store) Rebuild() error {
 }
 
 func (s Store) uniquePersonDir(slug string) (string, error) {
+	dir, _, err := s.uniquePersonDirFrom(slug, 0)
+	return dir, err
+}
+
+func (s Store) uniquePersonDirFrom(slug string, start int) (string, int, error) {
 	if slug == "" {
 		slug = "person"
 	}
-	for i := 0; ; i++ {
+	for i := start; ; i++ {
 		candidate := slug
 		if i > 0 {
 			candidate = fmt.Sprintf("%s-%d", slug, i+1)
@@ -320,10 +355,10 @@ func (s Store) uniquePersonDir(slug string) (string, error) {
 		path := filepath.Join(s.Repo.PeopleDir(), candidate)
 		_, err := os.Stat(path)
 		if errors.Is(err, os.ErrNotExist) {
-			return path, nil
+			return path, i, nil
 		}
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	}
 }
