@@ -203,11 +203,35 @@ func matchContact(people []model.Person, contact model.SourceContact, matchNames
 		return -1
 	}
 	for i, p := range people {
-		if model.NormalizeName(p.Name) != "" && model.NormalizeName(p.Name) == model.NormalizeName(contact.Name) {
+		if model.NormalizeName(p.Name) != "" && model.NormalizeName(p.Name) == model.NormalizeName(contact.Name) && !sourceIdentityConflicts(p, contact) {
 			return i
 		}
 	}
 	return -1
+}
+
+// sourceIdentityConflicts reports whether p already carries a different
+// identity from contact's source. A shared display name alone must not merge
+// two distinct source records, such as two Apple contacts named "John Smith".
+func sourceIdentityConflicts(p model.Person, contact model.SourceContact) bool {
+	switch contact.Source {
+	case "apple":
+		if contact.ExternalID != "" && p.Apple.ID != "" && p.Apple.ID != contact.ExternalID {
+			return true
+		}
+	case "google":
+		if contact.ExternalID != "" && p.Google.Resource != "" && p.Google.Resource != contact.ExternalID {
+			return true
+		}
+	}
+	// matchContact already found no overlapping account, so existing accounts
+	// for the same service belong to a different source identity.
+	for service := range cleanAccounts(contact.Accounts) {
+		if len(p.Accounts[service]) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func sourceValues(values []model.ContactValue, source string, normalize func(string) string) []model.ContactValue {

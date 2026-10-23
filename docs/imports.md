@@ -151,6 +151,11 @@ emails, or normalized phone numbers. They do not automatically merge by name
 alone; a matching display name without a matching phone is treated as a new
 person for now instead of risking a bad join.
 
+Apple, Google, Birdclaw, and Discrawl imports can still link an existing
+person by exact name, but never one that already has a different identity from
+the same source (Apple identifier, Google resource name, or account for the
+same service). When only their names match, distinct source contacts stay separate.
+
 If one exported crawler contact contains a phone already owned by a different
 person, clawdex leaves that conflicting phone off the matched person instead of
 creating an automatic cross-person join.
