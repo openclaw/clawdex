@@ -482,6 +482,81 @@ func TestCrawlerImportDedupePhonesAndRecordsSources(t *testing.T) {
 	}
 }
 
+func TestImportKeepsSameNameSourceContactsSeparate(t *testing.T) {
+	for _, tc := range []struct {
+		source   string
+		contacts []model.SourceContact
+	}{
+		{source: "apple", contacts: []model.SourceContact{
+			{ExternalID: "A1", Name: "John Smith", Emails: []model.ContactValue{{Value: "john.a@example.com"}}},
+			{ExternalID: "B2", Name: "John Smith", Emails: []model.ContactValue{{Value: "john.b@example.com"}}},
+		}},
+		{source: "google", contacts: []model.SourceContact{
+			{ExternalID: "people/c1", Name: "John Smith", Emails: []model.ContactValue{{Value: "john.a@example.com"}}},
+			{ExternalID: "people/c2", Name: "John Smith", Emails: []model.ContactValue{{Value: "john.b@example.com"}}},
+		}},
+		{source: "discord", contacts: []model.SourceContact{
+			{ExternalID: "channel-1", Name: "John Smith", Accounts: map[string][]string{"discord": {"user:1", "channel:1"}}},
+			{ExternalID: "channel-2", Name: "John Smith", Accounts: map[string][]string{"discord": {"user:2", "channel:2"}}},
+		}},
+		{source: "x", contacts: []model.SourceContact{
+			{ExternalID: "1-2", Name: "John Smith", Accounts: map[string][]string{"x": {"dm:1-2", "@john_a"}}},
+			{ExternalID: "1-3", Name: "John Smith", Accounts: map[string][]string{"x": {"dm:1-3", "@john_b"}}},
+		}},
+	} {
+		t.Run(tc.source, func(t *testing.T) {
+			s := New(testRepo(t))
+			now := time.Now()
+			changes, err := s.ImportContacts(tc.source, tc.contacts, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(changes) != 2 || changes[0].Action != "create" || changes[1].Action != "create" {
+				t.Fatalf("changes = %#v", changes)
+			}
+			people, err := s.People()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(people) != 2 {
+				t.Fatalf("people = %#v", people)
+			}
+			changes, err = s.ImportContacts(tc.source, tc.contacts, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, change := range changes {
+				if change.Action != "update" || change.PersonID == "" {
+					t.Fatalf("reimport change = %#v", change)
+				}
+			}
+			people, err = s.People()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(people) != 2 {
+				t.Fatalf("reimport people = %#v", people)
+			}
+		})
+	}
+}
+
+func TestImportStillLinksSameNamePersonWithoutSourceIdentity(t *testing.T) {
+	s := New(testRepo(t))
+	now := time.Now()
+	existing, err := s.AddPerson("John Smith", nil, nil, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := s.ImportContacts("apple", []model.SourceContact{{ExternalID: "A1", Name: "John Smith"}}, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 1 || changes[0].Action != "update" || changes[0].PersonID != existing.ID {
+		t.Fatalf("changes = %#v", changes)
+	}
+}
+
 func TestCrawlerImportDoesNotMatchByNameOnly(t *testing.T) {
 	r := testRepo(t)
 	s := New(r)

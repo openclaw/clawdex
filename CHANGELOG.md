@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Apple, Google, X, and Discord imports merging distinct same-name source contacts; name-only matching now respects existing source identities. Thanks @parth-garg01.
+
 ## 0.4.1 - 2026-10-20
 
 **Highlights:** Rebuild with Go 1.27.3 to fix the reachable crypto/x509 certificate-validation vulnerability.
