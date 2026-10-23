@@ -387,7 +387,7 @@ func linkUnsupported(err error) bool {
 // reader loads; creators treat that name as taken and use the next suffix.
 func publishLocked(root *os.Root, tmp, clean string) error {
 	lock := filepath.Join(filepath.Dir(clean), "."+filepath.Base(clean)+".create-lock")
-	f, err := root.OpenFile(lock, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	f, err := createLock(root, lock)
 	if err != nil {
 		return err
 	}
