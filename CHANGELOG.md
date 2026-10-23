@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-- Update CrawlKit to 0.17.2, aligning its declared toolchain with Go 1.27.3 while retaining the Go 1.27.0 minimum.
+## 0.4.2 - 2026-10-23
+
+**Highlights:** Preserve concurrent contact and note writes, and keep distinct same-name imported contacts separate.
 
 - Fixed concurrent note, person, and imported-person creation silently overwriting records, including on filesystems without hard links; damaged empty contacts remain repairable. Thanks @parth-garg01.
-
 - Fixed Apple, Google, X, and Discord imports merging distinct same-name source contacts; name-only matching now respects existing source identities. Thanks @parth-garg01.
+- Update CrawlKit to 0.17.2, aligning its declared toolchain with Go 1.27.3 while retaining the Go 1.27.0 minimum.
 
 ## 0.4.1 - 2026-10-20
 
