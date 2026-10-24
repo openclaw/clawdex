@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update CrawlKit to v0.17.3 for consistency with the crawler family.
+
 ## 0.4.2 - 2026-10-23
 
 **Highlights:** Preserve concurrent contact and note writes, and keep distinct same-name imported contacts separate.
