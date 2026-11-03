@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Batch main CodeQL analysis weekly while preserving PR and manual scans.
+
 - Update CrawlKit to v0.17.3 for consistency with the crawler family.
 
 ## 0.4.2 - 2026-10-23
